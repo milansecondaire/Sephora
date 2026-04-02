@@ -1,0 +1,116 @@
+# generated: 2026-03-25
+# project: Edram
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-25
+project: Edram
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # ─────────────────────────────────────────────────────────
+  # E1 — Data Foundation
+  # ─────────────────────────────────────────────────────────
+  epic-1: in-progress
+  1-1-load-validate-raw-dataset: done
+  1-2-data-quality-assessment-cleaning: done
+  1-3-customer-level-aggregation: ready-for-dev
+  1-4-rfm-feature-computation: ready-for-dev
+  1-5-behavioral-channel-feature-computation: ready-for-dev
+  1-6-product-affinity-feature-computation: ready-for-dev
+  1-7-lifecycle-feature-computation: ready-for-dev
+  epic-1-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────
+  # E2 — Exploratory Data Analysis
+  # ─────────────────────────────────────────────────────────
+  epic-2: in-progress
+  2-1-univariate-distribution-analysis: done
+  2-2-correlation-redundancy-analysis: done
+  2-3-rfm-space-visualization: done
+  2-4-channel-product-brand-analysis: review
+  2-5-outlier-analysis-treatment-decision: ready-for-dev
+  2-6-loyalty-lifecycle-analysis: ready-for-dev
+  epic-2-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────
+  # E3 — Feature Engineering & Preprocessing
+  # ─────────────────────────────────────────────────────────
+  # E3 — Feature Engineering & Preprocessing (REVISED 2026-03-31)
+  # Stories 3-1 to 3-3 rewritten for comprehensive preprocessing
+  # Code done in src/config.py + src/preprocessing.py; notebooks pending
+  # ─────────────────────────────────────────────────────────
+  epic-3: in-progress
+  3-1-feature-selection: needs-rework          # code done, notebook E3.1 pending
+  3-2-missing-value-imputation: done
+  3-3-feature-scaling: needs-rework            # code done, notebook E3.3 pending
+  3-4-pca-variance-analysis: ready-for-dev     # REVISED: 70 features input, n_components bumped to 30
+  3-5-umap-2d-visualization: done
+  epic-3-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────
+  # E4 — Clustering Models
+  # ─────────────────────────────────────────────────────────
+  epic-4: in-progress
+  4-1-kmeans-optimal-k-selection: done
+  4-2-kmeans-final-run-assignment: done
+  4-3-agglomerative-hierarchical-clustering: ready-for-dev
+  4-4-gaussian-mixture-models: ready-for-dev
+  4-5-algorithm-comparison-final-selection: ready-for-dev
+  4-6-cluster-stability-validation: ready-for-dev
+  epic-4-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────
+  # E5 — Segment Profiling & Quantification
+  # ─────────────────────────────────────────────────────────
+  epic-5: in-progress
+  5-1-global-kpi-baseline: ready-for-dev
+  5-2-per-cluster-kpi-computation: ready-for-dev
+  5-3-delta-table-clusters-vs-global-average: ready-for-dev
+  5-4-top-distinguishing-features-per-cluster: ready-for-dev
+  5-5-statistical-validation-segment-differences: ready-for-dev
+  5-6-clv-ranking-high-potential-segment-identification: ready-for-dev
+  epic-5-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────
+  # E6 — Personas & Marketing Recommendations
+  # ─────────────────────────────────────────────────────────
+  epic-6: in-progress
+  6-1-persona-naming-archetype-definition: ready-for-dev
+  6-2-persona-card-production: ready-for-dev
+  6-3-marketing-recommendations-per-segment: ready-for-dev
+  6-4-segment-prioritization-matrix: ready-for-dev
+  6-5-ai-generated-personalized-content-opportunity: ready-for-dev
+  epic-6-retrospective: optional

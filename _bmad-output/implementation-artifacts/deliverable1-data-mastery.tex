@@ -1,0 +1,177 @@
+\documentclass[9pt,a4paper]{article}
+
+% --- Geometry ---
+\usepackage[margin=1.4cm,top=1.2cm,bottom=1.2cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% --- Graphics & tables ---
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{wrapfig}
+
+% --- Math ---
+\usepackage{amsmath}
+
+% --- Colors & links ---
+\usepackage[dvipsnames]{xcolor}
+\usepackage[colorlinks=true,linkcolor=MidnightBlue,urlcolor=MidnightBlue,citecolor=MidnightBlue]{hyperref}
+
+% --- Section formatting (compact) ---
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\bfseries\large\color{MidnightBlue}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\bfseries\normalsize\color{MidnightBlue}}{\thesubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{5pt}{2pt}
+\titlespacing*{\subsection}{0pt}{3pt}{1pt}
+
+% --- Compact lists ---
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=1.2em}
+
+% --- Header ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\footnotesize Milan Viallet --- Albert School B2 BDD}
+\lhead{\footnotesize\textbf{Deliverable~1} --- Data Mastery}
+\rfoot{\footnotesize\thepage/2}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Paragraph ---
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt}
+
+% ======================================================================
+\begin{document}
+
+\begin{center}
+{\large\bfseries\color{MidnightBlue} Deliverable~1 --- Data Mastery}\\[2pt]
+{\small Advanced Customer Segmentation \& Persona Creation --- Sephora \quad$\cdot$\quad Milan Viallet \quad$\cdot$\quad March~25, 2026}
+\end{center}
+\vspace{-4pt}\hrule height 0.5pt\vspace{3pt}
+
+% ======================================================================
+\section{Data Understanding}
+% ======================================================================
+
+\subsection{Grain of the Table}
+
+The dataset contains \textbf{399{,}997 transaction lines} spanning January--December 2025.
+Each row represents \emph{one product line within one ticket}: a single SKU (\texttt{materialCode}) purchased by a customer (\texttt{anonymized\_card\_code}) inside a ticket (\texttt{anonymized\_Ticket\_ID}).
+The data covers \textbf{64{,}469 unique customers} and \textbf{184{,}282 unique tickets}, yielding on average \textbf{3.0 tickets/customer} (median = 2) and \textbf{2.2 lines/ticket} (median = 2).
+Transactions span three countries (FR 98.6\%, LU 0.96\%, MC 0.46\%) and two channels (store 86\%, estore 14\%).
+
+\textbf{Aggregation plan.}
+Because the unit of analysis for segmentation is the \emph{customer}, we will collapse these rows into a single feature vector per \texttt{anonymized\_card\_code}: RFM metrics, channel mix, product-axis affinity shares, discount sensitivity, and demographic proxies --- yielding a $64{,}469 \times p$ feature matrix ready for clustering.
+
+\subsection{Data Quality Findings}
+
+\begin{table}[H]
+\centering\footnotesize
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+\textbf{Finding} & \textbf{Impact \& Resolution} \\
+\midrule
+\textbf{Typo}: \texttt{MAEK UP} (115{,}679 rows) vs.\ \texttt{MAKE UP} (77{,}411) &
+Two labels for the same axis. After merge: Make~Up becomes the \textbf{\#1 axis by volume} (193{,}090 rows, 35.9\% of revenue). Must fix before any axis-based feature. \\
+\textbf{Missing first-purchase fields} (74\% null across 10 columns) &
+Only $\sim$26\% of customers have first-purchase details. We will create a binary flag \texttt{has\_first\_purchase} and use these fields only as secondary enrichment, never as core clustering features. \\
+\textbf{Age = 0} (8.6\% of rows, $\sim$5{,}600 customers) &
+Encode as \texttt{NaN}; rely on \texttt{age\_category}/\texttt{age\_generation} when available. 28--29\% of rows lack age categories --- age will be treated as supplementary, not primary. \\
+\textbf{Negative sales} (5{,}210 rows, 1.3\%) \& zero sales (8{,}893 rows) &
+Returns and samples. We keep them to reflect net customer value: a customer who returns a lot is behaviorally different from one who doesn't. \\
+\textbf{Gender}: 99{,}999 = undeclared (23 rows / 6 customers) &
+Negligible. Recode to ``Unknown''. 88\% of customers are Women, 12\% Men. \\
+\bottomrule
+\end{tabularx}
+\vspace{-6pt}
+\end{table}
+
+\subsection{Key Numbers}
+
+\begin{minipage}[t]{0.48\textwidth}
+\footnotesize
+\begin{itemize}
+  \item \textbf{Revenue}: \texteuro12.77M (net incl.\ VAT)
+  \item \textbf{Avg.\ customer LTV}: \texteuro198 (med.\ \texteuro108)
+  \item \textbf{Avg.\ basket}: \texteuro69.5 (med.\ \texteuro54)
+  \item \textbf{Discount rate}: 13.1\%
+  \item \textbf{Recency}: 111d mean (med.\ 68d)
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\footnotesize
+\begin{itemize}
+  \item \textbf{Loyalty}: BRONZE 63.6\%, SILVER 32.1\%, GOLD 4.3\%
+  \item \textbf{Store-only}: 80.4\%; Omni: 12.5\%; Estore: 7.1\%
+  \item \textbf{Top axis}: Fragrance 37.8\%, Make~Up 35.9\%
+  \item \textbf{Market}: Selective 48.4\%, Exclusive 36.0\%
+\end{itemize}
+\end{minipage}
+
+% ======================================================================
+\section{Angle: Behavioral Segmentation via Unsupervised Clustering}
+% ======================================================================
+
+\textbf{Why.} Sephora's existing RFM segments (9 IDs) collapse 64k customers into broad buckets that conflate channel behavior, product affinity, and value tiers.
+Our hypothesis is that introducing \emph{multi-dimensional} clustering --- combining RFM, channel mix, product-axis shares, discount sensitivity, and demographic signals --- will reveal \textbf{latent personas} that are more actionable for marketing than RFM alone.
+
+\textbf{What.} We target 10--30 clusters evaluated by Silhouette Score ($\geq 0.35$), Davies--Bouldin Index, and Calinski--Harabasz Index, profiled via KPI delta tables.
+
+\subsection{Exploratory Evidence}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth]{_bmad-output/implementation-artifacts/figures/d1_fig1_monthly_trend.pdf}\hfill
+\includegraphics[width=0.48\textwidth]{_bmad-output/implementation-artifacts/figures/d1_fig2_spend_distribution.pdf}
+\vspace{-4pt}
+\caption{\footnotesize\textbf{Left}: Strong Nov--Dec seasonality (27.7\% of revenue) --- seasonal buyers vs.\ year-round loyalists. \textbf{Right}: Log-normal spend; BRONZE hides sub-segments.}
+\label{fig:top}
+\end{figure}
+\vspace{-8pt}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\textwidth]{_bmad-output/implementation-artifacts/figures/d1_fig3_rfm_scatter.pdf}\hfill
+\includegraphics[width=0.48\textwidth]{_bmad-output/implementation-artifacts/figures/d1_fig4_axis_channel.pdf}
+\vspace{-4pt}
+\caption{\footnotesize\textbf{Left}: Dense low-freq/recent mass + sparse high-freq loyalist tail. \textbf{Right}: Fragrance is in-store dominated; Make~Up drives estore --- channel$\times$axis clusters expected.}
+\label{fig:bottom}
+\end{figure}
+
+\subsection{Initial Hypotheses}
+\vspace{-2pt}
+\begin{enumerate}
+  \item \textbf{BRONZE is not monolithic}: 63.6\% of customers --- likely 3--4 sub-segments (one-time gifters, digital explorers, bargain hunters, dormant). Log-spend (Fig.~\ref{fig:top}R) confirms high within-tier variance.
+  \item \textbf{Channel$\times$Axis drives personas}: 80\% store-only but omnichannel 12.5\% over-indexes on value. Fragrance is in-store; Make~Up drives estore (Fig.~\ref{fig:bottom}R).
+  \item \textbf{Seasonality defines behavior}: Nov--Dec spike (+80\% vs.\ Aug--Sep) suggests a ``gifter'' cluster active only in Q4.
+  \item \textbf{RFM$\rightarrow$15--25 personas} once we add channel, product, and discount dimensions.
+\end{enumerate}
+
+% ======================================================================
+\section{What Comes Next}
+% ======================================================================
+
+\textbf{Week-ahead plan} (Sprint~2):
+\textbf{(1)} Feature engineering --- customer-level RFM + channel share + axis shares + discount rate + demographics ($\sim$15--20 features).
+\textbf{(2)} Preprocessing --- StandardScaler, PCA ($\geq$85\% var.), UMAP 2D.
+\textbf{(3)} Clustering --- K-Means, Agglomerative, DBSCAN, GMM; $k\in[5,30]$; select via Silhouette + Davies--Bouldin.
+\textbf{(4)} Profiling --- KPI delta tables + Kruskal--Wallis significance.
+\textbf{(5)} Persona cards --- marketing names + campaign recommendations.
+
+\textbf{Key unknowns:}
+(a)~Include customers with $<$2 txn or not;
+(b)~PCA vs.\ raw features for cluster stability;
+(c)~Handling of 74\%-missing first-purchase block.
+
+\vfill
+\begin{center}
+\scriptsize\color{gray}\itshape Conversation starter --- all numbers from raw dataset, subject to refinement.
+\end{center}
+
+\end{document}
