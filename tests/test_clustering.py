@@ -323,3 +323,104 @@ class TestPlotUmapKmeansVsHclust:
         assert os.path.exists(path)
         plt.close(fig)
 
+
+# ── Story R1.5: MLflow Integration ──────────────────────────────────
+
+class TestLogClusteringRun:
+    """Tests for log_clustering_run() — AC 2."""
+
+    def test_returns_run_id_string(self, tmp_path):
+        import mlflow
+        from src.clustering import log_clustering_run
+        mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
+        mlflow.set_experiment("test-exp")
+        run_id = log_clustering_run(
+            run_name="test-run",
+            params={"k": 3, "algorithm": "kmeans"},
+            metrics={"silhouette": 0.5, "davies_bouldin": 1.0},
+        )
+        assert isinstance(run_id, str)
+        assert len(run_id) == 32
+
+    def test_params_logged(self, tmp_path):
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        from src.clustering import log_clustering_run
+        mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
+        mlflow.set_experiment("test-exp")
+        run_id = log_clustering_run(
+            run_name="test-params",
+            params={"k": 5, "algorithm": "kmeans"},
+            metrics={"silhouette": 0.3},
+        )
+        client = MlflowClient()
+        run = client.get_run(run_id)
+        assert run.data.params["k"] == "5"
+        assert run.data.params["algorithm"] == "kmeans"
+
+    def test_metrics_logged(self, tmp_path):
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        from src.clustering import log_clustering_run
+        mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
+        mlflow.set_experiment("test-exp")
+        run_id = log_clustering_run(
+            run_name="test-metrics",
+            params={"k": 3},
+            metrics={"silhouette": 0.42, "davies_bouldin": 1.5},
+        )
+        client = MlflowClient()
+        run = client.get_run(run_id)
+        assert abs(run.data.metrics["silhouette"] - 0.42) < 1e-6
+        assert abs(run.data.metrics["davies_bouldin"] - 1.5) < 1e-6
+
+    def test_artifacts_logged(self, tmp_path):
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        from src.clustering import log_clustering_run
+        mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
+        mlflow.set_experiment("test-exp")
+        # Create a temp CSV artifact
+        csv_path = str(tmp_path / "labels.csv")
+        pd.DataFrame({"label": [0, 1, 2]}).to_csv(csv_path, index=False)
+        run_id = log_clustering_run(
+            run_name="test-artifact",
+            params={"k": 3},
+            metrics={"silhouette": 0.3},
+            artifacts={"labels": csv_path},
+        )
+        client = MlflowClient()
+        artifacts = client.list_artifacts(run_id, path="labels")
+        assert len(artifacts) > 0
+
+    def test_no_artifacts_when_none(self, tmp_path):
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        from src.clustering import log_clustering_run
+        mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
+        mlflow.set_experiment("test-exp")
+        run_id = log_clustering_run(
+            run_name="test-no-artifact",
+            params={"k": 3},
+            metrics={"silhouette": 0.3},
+            artifacts=None,
+        )
+        client = MlflowClient()
+        artifacts = client.list_artifacts(run_id)
+        assert len(artifacts) == 0
+
+    def test_nested_run(self, tmp_path):
+        import mlflow
+        from src.clustering import log_clustering_run
+        mlflow.set_tracking_uri(str(tmp_path / "mlruns"))
+        mlflow.set_experiment("test-exp")
+        with mlflow.start_run(run_name="parent") as parent:
+            child_id = log_clustering_run(
+                run_name="child",
+                params={"k": 2},
+                metrics={"silhouette": 0.1},
+                parent_run_id=parent.info.run_id,
+            )
+        assert isinstance(child_id, str)
+        assert child_id != parent.info.run_id
+
