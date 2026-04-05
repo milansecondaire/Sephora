@@ -70,20 +70,38 @@ def run_kmeans_final(X: pd.DataFrame, k: int, random_state: int = RANDOM_STATE) 
     return labels, km
 
 
-def run_hierarchical(X: pd.DataFrame, k: int) -> "np.ndarray":
+def run_hierarchical(X: pd.DataFrame, k: int, n_samples: int = None) -> "np.ndarray":
     """Fit AgglomerativeClustering(ward) on X and return cluster labels.
 
     Args:
         X: Feature matrix (n_samples, n_features).
         k: Number of clusters (same k_optimal as used in KMeans).
+        n_samples: If provided, fit only on a random subsample of this size,
+                   then assign full dataset via nearest-centroid propagation.
 
     Returns:
         labels ndarray of shape (n_samples,).
     """
-    import numpy as np  # noqa: F401 — kept local to avoid module-level dep
-    model = AgglomerativeClustering(n_clusters=k, linkage="ward")
-    labels = model.fit_predict(X)
-    return labels
+    import numpy as np
+    from sklearn.metrics import pairwise_distances_argmin_min
+
+    if n_samples is not None and n_samples < len(X):
+        rng = np.random.default_rng(42)
+        idx = rng.choice(len(X), size=n_samples, replace=False)
+        X_sub = X.iloc[idx]
+        model = AgglomerativeClustering(n_clusters=k, linkage="ward")
+        sub_labels = model.fit_predict(X_sub)
+        # Compute centroid of each cluster on the subsample
+        centroids = np.vstack([
+            X_sub.values[sub_labels == c].mean(axis=0) for c in range(k)
+        ])
+        # Assign all points to nearest centroid
+        full_labels, _ = pairwise_distances_argmin_min(X.values, centroids)
+        return full_labels
+    else:
+        model = AgglomerativeClustering(n_clusters=k, linkage="ward")
+        labels = model.fit_predict(X)
+        return labels
 
 
 def log_clustering_run(
