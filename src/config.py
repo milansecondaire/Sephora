@@ -27,7 +27,7 @@ CLUSTERING_FEATURES = [
 
 # === Comprehensive Preprocessing Feature Groups ===
 
-# Features to drop (zero variance, exact duplicates, raw dates, non-behavioral flags)
+# Features to drop (zero variance, exact duplicates, raw dates, non-behavioral flags, non-actionable)
 FEATURES_DROP = [
     "is_new_customer",              # constant=1 for all rows, zero variance
     "total_sales_eur",              # exact duplicate of monetary_total
@@ -43,6 +43,20 @@ FEATURES_DROP = [
     "first_purchase_date",          # raw date — derivatives retained
     "subscription_date",            # raw date — subscription_tenure_days retained
     "is_outlier",                   # traceability flag, not a behavioral feature
+    # R1.3 — redundant with continuous ratios (dominant = argmax of ratios)
+    "dominant_axe",                # redundant: axe_*_ratio columns capture the same info continuously
+    "dominant_market",             # redundant: market_*_ratio columns capture the same info continuously
+    # R1.2 — non-actionable features
+    "total_quantity",               # pure volume: consequence of loyalty, not a targeting lever (avg_units_per_basket kept)
+    "total_lines",                  # pure volume: same reason as total_quantity
+    "customer_city",                # too granular (~12K modalities): unusable in clustering without urban/rural transformation
+    "first_purchase_amount",        # distant past: no longer reflects current behavior
+    "channel_recruitment",          # distant past: dominant_channel is the current channel preference
+    "first_purchase_axe",           # distant past: dominant_axe replaces it
+    "age_category",                 # redundant with age (continuous, richer)
+    "age_generation",               # redundant with age
+    "total_discount_eur",           # redundant: discount_rate captures the same information as a normalized ratio
+    "cc_transactions",              # redundant: click_collect_ratio already exists
 ]
 
 # Continuous / numeric features → median imputation + StandardScaler
@@ -51,7 +65,6 @@ FEATURES_CONTINUOUS = [
     "recency_days", "frequency", "monetary_total", "monetary_avg",
     # Behavior
     "avg_basket_size_eur", "avg_units_per_basket", "discount_rate",
-    "total_discount_eur", "total_quantity", "total_lines",
     # Channel ratios
     "store_ratio", "estore_ratio", "click_collect_ratio",
     # Product affinity ratios
@@ -61,11 +74,11 @@ FEATURES_CONTINUOUS = [
     "market_selective_ratio", "market_exclusive_ratio",
     "market_sephora_ratio", "market_others_ratio",
     # Diversity & counts
-    "nb_unique_brands", "nb_unique_stores", "axis_diversity", "cc_transactions",
+    "nb_unique_brands", "nb_unique_stores", "axis_diversity",
     # Demographics
     "age",
     # Lifecycle
-    "subscription_tenure_days", "first_purchase_amount",
+    "subscription_tenure_days",
     # Ordinal (0=No Fid, 1=BRONZE, 2=SILVER, 3=GOLD)
     "loyalty_numeric",
 ]
@@ -74,21 +87,50 @@ FEATURES_CONTINUOUS = [
 FEATURES_ONEHOT = [
     "gender",              # Women, Men, Unknown (3)
     "dominant_channel",    # store, estore, click_collect (3)
-    "dominant_axe",        # MAKE UP, SKINCARE, FRAGRANCE, HAIRCARE, OTHERS (5)
-    "dominant_market",     # SELECTIVE, EXCLUSIVE, SEPHORA, OTHERS (4)
     "country",             # FR, LU, MC (3)
-    "channel_recruitment", # store, estore + Unknown (3)
-    "age_category",        # 15-25yo, 26-35yo, 46-60yo, m60yo + Unknown (5)
-    "age_generation",      # genz, gena, geny, babyboomers + Unknown (5)
-    "first_purchase_axe",  # cleaned to 5 primary axes + Unknown (6)
 ]
 
 # High-cardinality categoricals → fill "Unknown" + Frequency Encoding
-FEATURES_FREQUENCY = [
-    "customer_city",       # ~12K unique cities → frequency = proxy for urbanization
-]
+FEATURES_FREQUENCY = []
 
-# Visualization
+# === Marketing Feature Categories (Story R1.1) ===
+
+FEATURE_CATEGORIES = {
+    "profil": [
+        "age", "gender", "country", "loyalty_numeric",
+    ],
+    "valeur": [
+        "recency_days", "frequency", "monetary_total", "monetary_avg",
+        "avg_basket_size_eur", "discount_rate",
+    ],
+    "affinite_produit": [
+        "axe_make_up_ratio", "axe_skincare_ratio", "axe_fragrance_ratio",
+        "axe_haircare_ratio", "axe_others_ratio",
+        "market_selective_ratio", "market_exclusive_ratio",
+        "market_sephora_ratio", "market_others_ratio",
+        "axis_diversity",
+    ],
+    "comportement": [
+        "avg_units_per_basket", "nb_unique_brands", "nb_unique_stores",
+    ],
+    "canal": [
+        "store_ratio", "estore_ratio", "click_collect_ratio", "dominant_channel",
+    ],
+    "dates": [
+        "subscription_tenure_days",
+    ],
+}
+
+CATEGORY_COLORS = {
+    "profil":           "#4C72B0",
+    "valeur":           "#DD8452",
+    "affinite_produit": "#55A868",
+    "comportement":     "#C44E52",
+    "canal":            "#8172B2",
+    "dates":            "#937860",
+}
+
+
 SEGMENT_COLORS = plt.cm.tab20.colors  # up to 20 distinct segments
 PALETTE_AXES = {
     "SKINCARE":   "#FF6B8A",

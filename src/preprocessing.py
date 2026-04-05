@@ -249,7 +249,7 @@ def apply_pca(X: pd.DataFrame, n_components: int | float = None) -> tuple[pd.Dat
     Returns:
         Tuple of (X_pca DataFrame with columns PC1…PCn, fitted PCA object).
     """
-    n = n_components if n_components is not None else min(X.shape[1], 50)
+    n = n_components if n_components is not None else min(X.shape[1], 30)
     pca = PCA(n_components=n, random_state=RANDOM_STATE)
     components = pca.fit_transform(X)
     col_names = [f"PC{i+1}" for i in range(pca.n_components_)]

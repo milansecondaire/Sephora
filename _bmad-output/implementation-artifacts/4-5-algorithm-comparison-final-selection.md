@@ -2,6 +2,10 @@
 
 Status: ready-for-dev
 
+> **Post-refonte R1 note:** No structural changes needed. References to `X_cluster` replaced by `X_scaled`.
+> The export to `customers_with_clusters.csv` is already specified in R1.6 Task 10 — Amelia must
+> ensure both are consistent (same file, not duplicated). MLflow: log the comparison table as a CSV artifact.
+
 ## Story
 
 As a Data Scientist,
@@ -27,10 +31,14 @@ so that the final model choice is transparent and justified.
   - [ ] Assign `df_customers['final_cluster'] = df_customers[f'{best_algo}_label']`
   - [ ] Also add `cluster_id` alias (architecture pattern): `df_customers['cluster_id'] = df_customers['final_cluster']`
 - [ ] Task 3 — Export `customers_with_clusters.csv` (AC: 5)
-  - [ ] Save `df_customers` with all features + `final_cluster` / `cluster_id`
-- [ ] Task 4 — Add notebook section in `02_clustering.ipynb` (AC: 4)
+  - [ ] Save `df_customers` with all features + `final_cluster` / `cluster_id` to `data/processed/customers_with_clusters.csv`
+  - [ ] ⚠️ This is the same file targeted by R1.6 Task 10 — do NOT create a second export cell; use the one already scaffolded by R1.6 and fill in `df_customers['final_cluster']` correctly before it runs
+- [ ] Task 4 — Log comparison table to MLflow (new after R1.5)
+  - [ ] Save `comp_df` as CSV to a temp file, log as MLflow artifact under run `"algorithm-comparison"`
+  - [ ] `mlflow.log_artifact("data/processed/comparison_results.csv", artifact_path="comparison")`
+- [ ] Task 5 — Add notebook section in `02_clustering.ipynb` (AC: 4)
   - [ ] Display comparison table
-  - [ ] Markdown justification cell
+  - [ ] Markdown justification cell (Milan fills in)
 
 ## Dev Notes
 

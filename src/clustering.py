@@ -1,5 +1,6 @@
 """Clustering module for Sephora customer segmentation (Epic 4)."""
 
+import mlflow
 import pandas as pd
 from typing import Iterable
 from sklearn.cluster import KMeans, AgglomerativeClustering
@@ -83,3 +84,20 @@ def run_hierarchical(X: pd.DataFrame, k: int) -> "np.ndarray":
     model = AgglomerativeClustering(n_clusters=k, linkage="ward")
     labels = model.fit_predict(X)
     return labels
+
+
+def log_clustering_run(
+    run_name: str,
+    params: dict,
+    metrics: dict,
+    artifacts: dict | None = None,
+    parent_run_id: str | None = None,
+) -> str:
+    """Log a clustering run to MLflow. Returns the run_id."""
+    with mlflow.start_run(run_name=run_name, nested=parent_run_id is not None) as run:
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+        if artifacts:
+            for name, path in artifacts.items():
+                mlflow.log_artifact(path, artifact_path=name)
+        return run.info.run_id

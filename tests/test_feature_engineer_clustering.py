@@ -26,16 +26,12 @@ class TestPreprocessForClustering:
     def test_returns_dataframe(self):
         df = pd.DataFrame({
             "age": [25, np.nan, 35],
-            "channel_recruitment": ["A", "B", np.nan],
             "first_purchase_axe": ["SKINCARE", "MAEK UP", np.nan],
             "some_ratio": [0.5, np.inf, -np.inf],
             "is_new_customer": [1, 1, 1],
         })
         res = preprocess_for_clustering(df)
         assert isinstance(res, pd.DataFrame)
-        assert "has_age_info" in res.columns
-        # Values are scaled by StandardScaler so we just check they exist
-        assert "has_first_purchase_info" in res.columns
         assert res.isnull().sum().sum() == 0
         if "some_ratio" in res.columns:
             assert np.isinf(res["some_ratio"]).sum() == 0

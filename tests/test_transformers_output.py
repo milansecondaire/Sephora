@@ -5,7 +5,6 @@ def test_return_transformers():
     df_mini = pd.DataFrame({
         "recency_days": [10.0, 20.0, 30.0],
         "age": [20.0, 30.0, 40.0],
-        "customer_city": ["Paris", "Lyon", "Paris"],
         "gender": ["Men", "Women", "Men"]
     })
     
@@ -18,4 +17,3 @@ def test_return_transformers():
     assert isinstance(res_df, pd.DataFrame)
     assert "scaler" in transformers
     assert transformers["scaler"].with_mean
-    assert "customer_city" in transformers["frequency_encoding"]

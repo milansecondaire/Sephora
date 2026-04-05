@@ -114,3 +114,15 @@ development_status:
   6-4-segment-prioritization-matrix: ready-for-dev
   6-5-ai-generated-personalized-content-opportunity: ready-for-dev
   epic-6-retrospective: optional
+
+  # ─────────────────────────────────────────────────────────
+  # R1 — Refonte Features & MLflow
+  # ─────────────────────────────────────────────────────────
+  EPIC-R1-feature-refonte-and-mlflow: in-progress
+  R1-1-feature-category-classification: done
+  R1-2-feature-suppression-non-actionnables: done
+  R1-3-correlation-circle: done
+  R1-4-remove-pca-from-clustering-pipeline: ready-for-dev
+  R1-5-mlflow-integration: ready-for-dev
+  R1-6-notebook-refonte: ready-for-dev
+  EPIC-R1-retrospective: optional

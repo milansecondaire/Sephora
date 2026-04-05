@@ -155,6 +155,94 @@ def get_high_correlation_pairs(
 
 
 # ---------------------------------------------------------------------------
+# US R1-3: Correlation Circle (PCA visualization only)
+# ---------------------------------------------------------------------------
+
+def plot_correlation_circle(
+    X_scaled: pd.DataFrame,
+    feature_categories: dict,
+    category_colors: dict,
+    save_path: str | None = None,
+) -> plt.Figure:
+    """Correlation circle: projects original features onto PC1/PC2 plane.
+
+    PCA used ONLY for visualization — not for clustering.
+    """
+    from itertools import combinations
+    import matplotlib.patches as mpatches
+
+    pca = PCA(n_components=2, random_state=RANDOM_STATE)
+    pca.fit(X_scaled)
+    loadings = pca.components_.T  # shape: (n_features, 2)
+
+    # Build reverse map: feature_name -> category
+    feat_to_cat: dict[str, str] = {}
+    for cat, feats in feature_categories.items():
+        for f in feats:
+            feat_to_cat[f] = cat
+
+    def _get_cat(col_name: str) -> str:
+        if col_name in feat_to_cat:
+            return feat_to_cat[col_name]
+        for base in feat_to_cat:
+            if col_name.startswith(base + "_"):
+                return feat_to_cat[base]
+        return "other"
+
+    fig, ax = plt.subplots(figsize=(12, 12))
+    ax.add_patch(plt.Circle((0, 0), 1, fill=False, color="grey", linewidth=1, linestyle="--"))
+    ax.axhline(0, color="lightgrey", linewidth=0.5)
+    ax.axvline(0, color="lightgrey", linewidth=0.5)
+
+    cols = X_scaled.columns.tolist()
+    for i, col in enumerate(cols):
+        x, y = loadings[i, 0], loadings[i, 1]
+        cat = _get_cat(col)
+        color = category_colors.get(cat, "#999999")
+        ax.annotate(
+            "", xy=(x, y), xytext=(0, 0),
+            arrowprops=dict(arrowstyle="->", color=color, lw=1.5),
+        )
+        ax.text(x * 1.05, y * 1.05, col, fontsize=6.5, ha="center", color=color)
+
+    # Print high-similarity pairs (cosine sim > 0.90)
+    print("Potential redundancies (cosine sim > 0.90):")
+    found = False
+    for i, j in combinations(range(len(cols)), 2):
+        norm_i = np.linalg.norm(loadings[i])
+        norm_j = np.linalg.norm(loadings[j])
+        
+        # Skip features not well represented in this 2D plane
+        if norm_i < 0.1 or norm_j < 0.1:
+            continue
+            
+        sim = np.dot(loadings[i], loadings[j]) / (norm_i * norm_j + 1e-9)
+        if sim > 0.90:
+            print(f"  {cols[i]}  ↔  {cols[j]}  (sim={sim:.3f})")
+            found = True
+    if not found:
+        print("  None found.")
+
+    # Legend
+    handles = [mpatches.Patch(color=category_colors[c], label=c) for c in category_colors]
+    ax.legend(handles=handles, loc="lower right", fontsize=9)
+
+    ev = pca.explained_variance_ratio_
+    ax.set_xlabel(f"PC1 ({ev[0]*100:.1f}% variance)", fontsize=11)
+    ax.set_ylabel(f"PC2 ({ev[1]*100:.1f}% variance)", fontsize=11)
+    ax.set_title("Cercle des corrélations — features colorées par catégorie", fontsize=13)
+    ax.set_xlim(-1.15, 1.15)
+    ax.set_ylim(-1.15, 1.15)
+    ax.set_aspect("equal")
+    fig.tight_layout()
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+        fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches="tight")
+    return fig
+
+
+# ---------------------------------------------------------------------------
 # US 2-3: RFM Space Visualization
 # ---------------------------------------------------------------------------
 

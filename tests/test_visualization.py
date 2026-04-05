@@ -201,6 +201,121 @@ class TestGetHighCorrelationPairs:
 
 
 # ================================================================
+# US R1-3: Correlation Circle
+# ================================================================
+
+@pytest.fixture
+def x_scaled_df():
+    """Scaled DataFrame simulating preprocess_for_clustering output."""
+    np.random.seed(42)
+    n = 100
+    cols = [
+        "recency_days", "frequency", "monetary_total", "monetary_avg",
+        "avg_basket_size_eur", "discount_rate",
+        "store_ratio", "estore_ratio", "click_collect_ratio",
+        "axe_make_up_ratio", "axe_skincare_ratio",
+        "gender_Women", "gender_Men",
+        "dominant_axe_MAKE UP", "dominant_axe_SKINCARE",
+    ]
+    data = np.random.randn(n, len(cols))
+    return pd.DataFrame(data, columns=cols)
+
+
+@pytest.fixture
+def feature_categories():
+    from src.config import FEATURE_CATEGORIES
+    return FEATURE_CATEGORIES
+
+
+@pytest.fixture
+def category_colors():
+    from src.config import CATEGORY_COLORS
+    return CATEGORY_COLORS
+
+
+class TestPlotCorrelationCircle:
+    def test_returns_figure(self, x_scaled_df, feature_categories, category_colors):
+        from src.visualization import plot_correlation_circle
+        fig = plot_correlation_circle(x_scaled_df, feature_categories, category_colors)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_saves_figure(self, x_scaled_df, feature_categories, category_colors, tmp_dir):
+        from src.visualization import plot_correlation_circle
+        path = os.path.join(tmp_dir, "correlation_circle.png")
+        fig = plot_correlation_circle(x_scaled_df, feature_categories, category_colors, save_path=path)
+        assert os.path.isfile(path)
+        assert os.path.getsize(path) > 0
+        plt.close(fig)
+
+    def test_unit_circle_drawn(self, x_scaled_df, feature_categories, category_colors):
+        from src.visualization import plot_correlation_circle
+        fig = plot_correlation_circle(x_scaled_df, feature_categories, category_colors)
+        ax = fig.axes[0]
+        patches = ax.patches
+        assert any(hasattr(p, "center") for p in patches), "Unit circle patch expected"
+        plt.close(fig)
+
+    def test_axes_labels_contain_variance(self, x_scaled_df, feature_categories, category_colors):
+        from src.visualization import plot_correlation_circle
+        fig = plot_correlation_circle(x_scaled_df, feature_categories, category_colors)
+        ax = fig.axes[0]
+        assert "PC1" in ax.get_xlabel()
+        assert "%" in ax.get_xlabel()
+        assert "PC2" in ax.get_ylabel()
+        assert "%" in ax.get_ylabel()
+        plt.close(fig)
+
+    def test_equal_aspect(self, x_scaled_df, feature_categories, category_colors):
+        from src.visualization import plot_correlation_circle
+        fig = plot_correlation_circle(x_scaled_df, feature_categories, category_colors)
+        ax = fig.axes[0]
+        assert ax.get_aspect() == "equal" or ax.get_aspect() == 1.0
+        plt.close(fig)
+
+    def test_legend_has_all_categories(self, x_scaled_df, feature_categories, category_colors):
+        from src.visualization import plot_correlation_circle
+        fig = plot_correlation_circle(x_scaled_df, feature_categories, category_colors)
+        ax = fig.axes[0]
+        legend_labels = [t.get_text() for t in ax.get_legend().get_texts()]
+        for cat in category_colors:
+            assert cat in legend_labels
+        plt.close(fig)
+
+    def test_prints_redundancies(self, feature_categories, category_colors, capsys):
+        from src.visualization import plot_correlation_circle
+        # Create perfectly correlated features to trigger cosine sim > 0.90
+        n = 100
+        np.random.seed(42)
+        base = np.random.randn(n)
+        df = pd.DataFrame({
+            "recency_days": base,
+            "frequency": base + np.random.randn(n) * 0.01,  # nearly identical
+            "monetary_total": np.random.randn(n),
+        })
+        fig = plot_correlation_circle(df, feature_categories, category_colors)
+        captured = capsys.readouterr()
+        assert "Potential redundancies" in captured.out
+        assert "recency_days" in captured.out
+        assert "frequency" in captured.out
+        plt.close(fig)
+
+    def test_ohe_column_colored_by_base_feature(self, feature_categories, category_colors):
+        from src.visualization import plot_correlation_circle
+        np.random.seed(42)
+        n = 50
+        df = pd.DataFrame({
+            "gender_Women": np.random.randn(n),
+            "gender_Men": np.random.randn(n),
+            "recency_days": np.random.randn(n),
+        })
+        fig = plot_correlation_circle(df, feature_categories, category_colors)
+        # Should not raise — OHE columns are handled gracefully
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+
+# ================================================================
 # US 2-3: RFM Space Visualization
 # ================================================================
 

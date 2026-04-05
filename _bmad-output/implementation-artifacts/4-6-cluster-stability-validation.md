@@ -2,6 +2,9 @@
 
 Status: ready-for-dev
 
+> **Post-refonte R1 note:** No structural changes needed. `X_cluster` throughout is now `X_scaled` (43 features).
+> `bootstrap_stability()` receives `X_scaled` directly — no dimension issue.
+
 ## Story
 
 As a Data Scientist,
@@ -78,7 +81,7 @@ def bootstrap_stability(
 def final_algo(X):
     return run_kmeans_final(X, k_optimal)[0]  # or run_hierarchical etc.
 
-stability_df = bootstrap_stability(X_cluster, df_customers['final_cluster'], final_algo)
+stability_df = bootstrap_stability(X_scaled, df_customers['final_cluster'], final_algo)
 print(f"Mean ARI: {stability_df['ari'].mean():.3f}")
 ```
 
