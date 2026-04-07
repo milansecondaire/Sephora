@@ -1,6 +1,6 @@
 # Story 4.5: Algorithm Comparison & Final Selection
 
-Status: ready-for-dev
+Status: review
 
 > **Post-refonte R1 note:** No structural changes needed. References to `X_cluster` replaced by `X_scaled`.
 > The export to `customers_with_clusters.csv` is already specified in R1.6 Task 10 — Amelia must
@@ -22,23 +22,23 @@ so that the final model choice is transparent and justified.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Build comparison table from `comparison_results` (AC: 1)
-  - [ ] Convert `comparison_results` list to DataFrame
-  - [ ] Add min cluster size % column
-  - [ ] Display as formatted table
-- [ ] Task 2 — Select best algorithm (AC: 2, 3)
-  - [ ] Identify algorithm with best combined score (highest silhouette, lowest DB, non-trivial cluster sizes)
-  - [ ] Assign `df_customers['final_cluster'] = df_customers[f'{best_algo}_label']`
-  - [ ] Also add `cluster_id` alias (architecture pattern): `df_customers['cluster_id'] = df_customers['final_cluster']`
-- [ ] Task 3 — Export `customers_with_clusters.csv` (AC: 5)
-  - [ ] Save `df_customers` with all features + `final_cluster` / `cluster_id` to `data/processed/customers_with_clusters.csv`
-  - [ ] ⚠️ This is the same file targeted by R1.6 Task 10 — do NOT create a second export cell; use the one already scaffolded by R1.6 and fill in `df_customers['final_cluster']` correctly before it runs
-- [ ] Task 4 — Log comparison table to MLflow (new after R1.5)
-  - [ ] Save `comp_df` as CSV to a temp file, log as MLflow artifact under run `"algorithm-comparison"`
-  - [ ] `mlflow.log_artifact("data/processed/comparison_results.csv", artifact_path="comparison")`
-- [ ] Task 5 — Add notebook section in `02_clustering.ipynb` (AC: 4)
-  - [ ] Display comparison table
-  - [ ] Markdown justification cell (Milan fills in)
+- [x] Task 1 — Build comparison table from `comparison_results` (AC: 1)
+  - [x] Convert `comparison_results` list to DataFrame
+  - [x] Add min cluster size % column
+  - [x] Display as formatted table
+- [x] Task 2 — Select best algorithm (AC: 2, 3)
+  - [x] Identify algorithm with best combined score (highest silhouette, lowest DB, non-trivial cluster sizes)
+  - [x] Assign `df_customers['final_cluster'] = df_customers[f'{best_algo}_label']`
+  - [x] Also add `cluster_id` alias (architecture pattern): `df_customers['cluster_id'] = df_customers['final_cluster']`
+- [x] Task 3 — Export `customers_with_clusters.csv` (AC: 5)
+  - [x] Save `df_customers` with all features + `final_cluster` / `cluster_id` to `data/processed/customers_with_clusters.csv`
+  - [x] ⚠️ This is the same file targeted by R1.6 Task 10 — do NOT create a second export cell; use the one already scaffolded by R1.6 and fill in `df_customers['final_cluster']` correctly before it runs
+- [x] Task 4 — Log comparison table to MLflow (new after R1.5)
+  - [x] Save `comp_df` as CSV to a temp file, log as MLflow artifact under run `"algorithm-comparison"`
+  - [x] `mlflow.log_artifact("data/processed/comparison_results.csv", artifact_path="comparison")`
+- [x] Task 5 — Add notebook section in `02_clustering.ipynb` (AC: 4)
+  - [x] Display comparison table
+  - [x] Markdown justification cell (Milan fills in)
 
 ## Dev Notes
 
@@ -91,15 +91,29 @@ print(f"Best algorithm: {best_algo_row['algorithm']}")
 ## Dev Agent Record
 
 ### Agent Model Used
-_To be filled by Dev Agent_
+Claude Opus 4.6 via GitHub Copilot
 
 ### Debug Log References
+None — clean implementation, all tests passed first run.
 
 ### Completion Notes List
+- Added `build_comparison_table()` to `src/clustering.py` — converts comparison_results list to DataFrame with min_cluster_pct column
+- Added `select_best_algorithm()` to `src/clustering.py` — combined score: silhouette - DB/DB_max, penalty for <1% clusters
+- 10 new tests in `tests/test_clustering.py` (TestBuildComparisonTable: 6, TestSelectBestAlgorithm: 4)
+- Updated notebook cell #VSC-bb297f08: uses `build_comparison_table()` + `select_best_algorithm()` to display comparison table and pick best algo
+- Added new MLflow logging cell: saves `comparison_results.csv` as artifact under `algorithm-comparison` run
+- Updated `final_cluster` assignment cell: dynamically maps best_algo → label column (was hardcoded to kmeans_label)
+- Added `cluster_id` alias column alongside `final_cluster`
+- Updated export cell: assert `final_cluster` and `cluster_id` exist before export
+- Added US-4.5 markdown section with justification placeholder for Milan
+- 322/322 tests passing, 0 regressions
 
 ### File List
 Files to create:
-- `data/processed/customers_with_clusters.csv`
+- `data/processed/customers_with_clusters.csv` (generated at notebook runtime)
+- `data/processed/comparison_results.csv` (generated at notebook runtime)
 
-Files to modify:
-- `02_clustering.ipynb` (add US-4.5 section)
+Files modified:
+- `src/clustering.py` — added `build_comparison_table()`, `select_best_algorithm()`
+- `tests/test_clustering.py` — added TestBuildComparisonTable (6 tests), TestSelectBestAlgorithm (4 tests)
+- `02_clustering.ipynb` — updated cells for US-4.5 (comparison table, MLflow, final_cluster assignment, export, markdown section)

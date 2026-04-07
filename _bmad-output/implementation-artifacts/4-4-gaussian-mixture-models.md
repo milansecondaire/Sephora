@@ -1,6 +1,6 @@
 # Story 4.4: Gaussian Mixture Models
 
-Status: ready-for-dev
+Status: review
 
 > **Post-refonte R1 note:** `covariance_type` changed from `'full'` to `'diag'` — mandatory.
 > With 43 features, `'full'` requires estimating 43×43 covariance matrices per cluster,
@@ -24,19 +24,19 @@ so that I can assess whether probabilistic assignment improves interpretability.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Implement `run_gmm()` in `src/clustering.py` (AC: 1–2)
-  - [ ] Fit GMM with `n_components=k_optimal`, `covariance_type='diag'`, `random_state=RANDOM_STATE`
-  - [ ] Return labels (hard assignments via `.predict()`)
-- [ ] Task 2 — Implement `evaluate_gmm_bic_aic()` in `src/clustering.py` + BIC/AIC plot (AC: 3)
-  - [ ] Evaluate GMM for k in `range(2, 21)` (not full K_RANGE — cap for runtime)
-  - [ ] Plot BIC and AIC vs. k inline in notebook; save to `figures/gmm_bic_aic.png`
-- [ ] Task 3 — Compute metrics and add to comparison (AC: 4)
-  - [ ] Silhouette, DB, CH for `gmm_label` on `X_scaled`
-  - [ ] Append to `comparison_results` list
-- [ ] Task 4 — Log GMM run to MLflow (AC: 5)
-  - [ ] Wrap with `mlflow.start_run(run_name="gmm-final")`
-  - [ ] Log: `k`, `algorithm="gmm_diag"`, `n_features`, `silhouette`, `davies_bouldin`, `calinski_harabasz`, `min_cluster_pct`
-- [ ] Task 5 — Add notebook section in `02_clustering.ipynb`
+- [x] Task 1 — Implement `run_gmm()` in `src/clustering.py` (AC: 1–2)
+  - [x] Fit GMM with `n_components=k_optimal`, `covariance_type='diag'`, `random_state=RANDOM_STATE`
+  - [x] Return labels (hard assignments via `.predict()`)
+- [x] Task 2 — Implement `evaluate_gmm_bic_aic()` in `src/clustering.py` + BIC/AIC plot (AC: 3)
+  - [x] Evaluate GMM for k in `range(2, 21)` (not full K_RANGE — cap for runtime)
+  - [x] Plot BIC and AIC vs. k inline in notebook; save to `figures/gmm_bic_aic.png`
+- [x] Task 3 — Compute metrics and add to comparison (AC: 4)
+  - [x] Silhouette, DB, CH for `gmm_label` on `X_scaled`
+  - [x] Append to `comparison_results` list
+- [x] Task 4 — Log GMM run to MLflow (AC: 5)
+  - [x] Wrap with `mlflow.start_run(run_name="gmm-final")`
+  - [x] Log: `k`, `algorithm="gmm_diag"`, `n_features`, `silhouette`, `davies_bouldin`, `calinski_harabasz`, `min_cluster_pct`
+- [x] Task 5 — Add notebook section in `02_clustering.ipynb`
 
 ## Dev Notes
 
@@ -96,14 +96,23 @@ With `'diag'`, each cluster has an independent diagonal covariance (one variance
 ## Dev Agent Record
 
 ### Agent Model Used
-_To be filled by Dev Agent_
+Claude Opus 4.6
 
 ### Debug Log References
+- mlflow dependency installed in anaconda env during test setup
 
 ### Completion Notes List
+- ✅ `run_gmm()` implemented with `covariance_type='diag'`, `random_state=42`, `max_iter=200`
+- ✅ `evaluate_gmm_bic_aic()` evaluates BIC/AIC for k=2..20 (default)
+- ✅ `plot_gmm_bic_aic()` added to visualization.py — BIC+AIC dual curve with best-k highlight
+- ✅ 18 new tests added (TestRunGmm: 9, TestEvaluateGmmBicAic: 6, TestPlotGmmBicAic: 3)
+- ✅ Full test suite: 61/61 passed, 0 regressions
+- ✅ Notebook cells added: markdown header, BIC/AIC plot, GMM fit + metrics, MLflow log, comparison table update
+- ✅ `comparison_results` list pattern adopted for extensibility (US-4.5)
 
 ### File List
-Files to modify:
-- `src/clustering.py` (add `run_gmm()`, `evaluate_gmm_bic_aic()`)
-- `src/visualization.py` (add `plot_gmm_bic_aic()`)
-- `02_clustering.ipynb` (add US-4.4 section)
+Files modified:
+- `src/clustering.py` — added `run_gmm()`, `evaluate_gmm_bic_aic()`, import `GaussianMixture`
+- `src/visualization.py` — added `plot_gmm_bic_aic()`
+- `tests/test_clustering.py` — added TestRunGmm, TestEvaluateGmmBicAic, TestPlotGmmBicAic (18 tests)
+- `02_clustering.ipynb` — added US-4.4 section (6 cells: md header, BIC/AIC, GMM fit, MLflow log, comparison update)

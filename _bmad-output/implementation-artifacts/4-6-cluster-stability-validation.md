@@ -1,9 +1,11 @@
 # Story 4.6: Cluster Stability Validation
 
-Status: ready-for-dev
+Status: review
 
 > **Post-refonte R1 note:** No structural changes needed. `X_cluster` throughout is now `X_scaled` (43 features).
 > `bootstrap_stability()` receives `X_scaled` directly — no dimension issue.
+> **Post-refonte R1.5 note:** MLflow logging added for consistency with R1.5.
+> Stability results (mean ARI, min/max ARI) logged as run `"stability-validation"` with bootstrap CSV as artifact.
 
 ## Story
 
@@ -18,19 +20,25 @@ so that I can confirm segments are not artifacts of the exact sample.
 3. Mean ARI ≥ 0.70 (acceptable stability threshold)
 4. Results reported in a table: subsample # | ARI score | cluster count
 5. If ARI < 0.70: document the instability and revisit k or algorithm
+6. The stability validation run is logged in MLflow as a run named `"stability-validation"` with params (`n_bootstraps`, `subsample_frac`, `algorithm`, `k`) and metrics (`mean_ari`, `min_ari`, `max_ari`), and the bootstrap results CSV as artifact
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Implement `bootstrap_stability()` in `src/validation.py` (AC: 1–2)
-  - [ ] Re-run the best algorithm (selected in US-4.5) on 5×80% subsamples
-  - [ ] Align labels to full-data labels and compute ARI
-  - [ ] Return results DataFrame
-- [ ] Task 2 — Evaluate stability threshold (AC: 3–5)
-  - [ ] Compute mean ARI
-  - [ ] Print pass/fail vs. 0.70 threshold
-  - [ ] If fail: document and suggest remediation
-- [ ] Task 3 — Create `src/validation.py` module
-- [ ] Task 4 — Add notebook section in `02_clustering.ipynb` (E4 final section)
+- [x] Task 1 — Implement `bootstrap_stability()` in `src/validation.py` (AC: 1–2)
+  - [x] Re-run the best algorithm (selected in US-4.5) on 5×80% subsamples
+  - [x] Align labels to full-data labels and compute ARI
+  - [x] Return results DataFrame
+- [x] Task 2 — Evaluate stability threshold (AC: 3–5)
+  - [x] Compute mean ARI
+  - [x] Print pass/fail vs. 0.70 threshold
+  - [x] If fail: document and suggest remediation
+- [x] Task 3 — Create `src/validation.py` module
+- [x] Task 4 — Log stability results to MLflow (AC: 6)
+  - [x] Wrap with `mlflow.start_run(run_name="stability-validation")`
+  - [x] Log params: `n_bootstraps`, `subsample_frac`, `algorithm` (name of chosen algo), `k` (`k_optimal`)
+  - [x] Log metrics: `mean_ari`, `min_ari`, `max_ari`
+  - [x] Save `stability_df` as CSV, log as MLflow artifact
+- [x] Task 5 — Add notebook section in `02_clustering.ipynb` (E4 final section)
 
 ## Dev Notes
 
@@ -95,6 +103,31 @@ else:
     print("Consider: reduce k, try different algorithm, or review feature selection")
 ```
 
+**MLflow logging:**
+```python
+import mlflow
+
+mean_ari = stability_df['ari'].mean()
+min_ari = stability_df['ari'].min()
+max_ari = stability_df['ari'].max()
+
+with mlflow.start_run(run_name="stability-validation"):
+    mlflow.log_params({
+        "n_bootstraps": 5,
+        "subsample_frac": 0.80,
+        "algorithm": best_algo_name,  # e.g. "kmeans"
+        "k": k_optimal,
+    })
+    mlflow.log_metrics({
+        "mean_ari": mean_ari,
+        "min_ari": min_ari,
+        "max_ari": max_ari,
+    })
+    stability_csv = "data/processed/stability_results.csv"
+    stability_df.to_csv(stability_csv, index=False)
+    mlflow.log_artifact(stability_csv, artifact_path="validation")
+```
+
 **E4 final Markdown summary:** Add after all validation:
 - Best algorithm and k chosen
 - Stability assessment result
@@ -110,6 +143,7 @@ else:
 - `stability_df`: bootstrap stability results
 - `src/validation.py` created
 - `02_clustering.ipynb` E4 section complete
+- MLflow run `"stability-validation"` with ARI metrics + bootstrap CSV artifact
 
 ### References
 - [epics — US-4.6](_bmad-output/planning-artifacts/epics-sephora-customer-segmentation-ml-2026-03-25.md)
@@ -118,15 +152,21 @@ else:
 ## Dev Agent Record
 
 ### Agent Model Used
-_To be filled by Dev Agent_
+Claude Opus 4.6
 
 ### Debug Log References
+No issues encountered.
 
 ### Completion Notes List
+- Created `src/validation.py` with `bootstrap_stability()` function: runs N bootstrap subsamples, computes ARI vs full-data labels
+- 12 unit tests in `tests/test_validation.py` — all passing (covers AC 1-5: DataFrame structure, ARI range, stability threshold on clear clusters, determinism, custom params)
+- Notebook section 10 added: bootstrap stability run, threshold evaluation, MLflow logging, E4 gate statement
+- MLflow run `stability-validation` logs params (n_bootstraps, subsample_frac, algorithm, k), metrics (mean_ari, min_ari, max_ari), and CSV artifact
 
 ### File List
-Files to create:
-- `src/validation.py` (create — add `bootstrap_stability()`)
+Files created:
+- `src/validation.py`
+- `tests/test_validation.py`
 
-Files to modify:
-- `02_clustering.ipynb` (add US-4.6 section + E4 summary)
+Files modified:
+- `02_clustering.ipynb` (added US-4.6 section 10 + E4 summary)

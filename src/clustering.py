@@ -4,6 +4,7 @@ import mlflow
 import pandas as pd
 from typing import Iterable
 from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from src.config import RANDOM_STATE, K_RANGE
 
@@ -102,6 +103,181 @@ def run_hierarchical(X: pd.DataFrame, k: int, n_samples: int = None) -> "np.ndar
         model = AgglomerativeClustering(n_clusters=k, linkage="ward")
         labels = model.fit_predict(X)
         return labels
+
+
+def plot_dendrogram(
+    X: pd.DataFrame,
+    k: int,
+    n_samples: int = 2_000,
+    save_path: str | None = None,
+):
+    """Compute Ward linkage on a subsample and plot the dendrogram.
+
+    Args:
+        X: Feature matrix (n_samples, n_features).
+        k: Number of clusters — used to draw the cut-line.
+        n_samples: Number of rows to subsample before computing linkage.
+                   Keep ≤ 5 000 for reasonable speed.
+        save_path: If provided, save the figure to this path.
+
+    Returns:
+        matplotlib Figure.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from scipy.cluster.hierarchy import linkage, dendrogram
+
+    rng = np.random.default_rng(42)
+    n = len(X)
+    n_sub = min(n_samples, n)
+    idx = rng.choice(n, size=n_sub, replace=False)
+    X_sub = X.iloc[idx].values
+
+    Z = linkage(X_sub, method="ward")
+
+    # Cut threshold: midpoint between the merge that creates k clusters and
+    # the one that creates k-1 clusters.  Z[-k] is the distance at which we
+    # go from k+1 → k clusters; Z[-k+1] from k → k-1 clusters.
+    if k >= 2:
+        cut = (Z[-k, 2] + Z[-k + 1, 2]) / 2
+    else:
+        cut = Z[-1, 2] * 1.05
+
+    p_show = min(n_sub - 1, max(k * 4, 40))
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+    dendrogram(
+        Z,
+        truncate_mode="lastp",
+        p=p_show,
+        ax=ax,
+        color_threshold=cut,
+        above_threshold_color="grey",
+        leaf_rotation=90,
+        leaf_font_size=8,
+    )
+    ax.axhline(cut, color="red", linestyle="--", linewidth=1.4,
+               label=f"Coupure k={k}  (seuil={cut:.1f})")
+    ax.set_title(
+        f"Dendrogramme Ward — {n_sub:,} points échantillonnés sur {n:,}  |  k={k} clusters",
+        fontsize=12,
+    )
+    ax.set_xlabel("Clients (groupes de feuilles)")
+    ax.set_ylabel("Distance Ward")
+    ax.legend(fontsize=10)
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150)
+
+    return fig
+
+
+def run_gmm(X: pd.DataFrame, k: int) -> tuple:
+    """Fit GMM with diagonal covariance. Returns (hard labels, fitted model).
+
+    Args:
+        X: Feature matrix (n_samples, n_features).
+        k: Number of components (clusters).
+
+    Returns:
+        Tuple of (labels ndarray, fitted GaussianMixture model).
+    """
+    gmm = GaussianMixture(
+        n_components=k,
+        covariance_type="diag",
+        random_state=RANDOM_STATE,
+        max_iter=200,
+    )
+    labels = gmm.fit_predict(X)
+    return labels, gmm
+
+
+def evaluate_gmm_bic_aic(X: pd.DataFrame, k_range=None) -> pd.DataFrame:
+    """Evaluate BIC and AIC for a range of k.
+
+    Args:
+        X: Feature matrix (n_samples, n_features).
+        k_range: Range of k values. Defaults to range(2, 21).
+
+    Returns:
+        DataFrame with columns: k, bic, aic.
+    """
+    k_range = k_range or range(2, 21)
+    results = []
+    for k in k_range:
+        gmm = GaussianMixture(
+            n_components=k,
+            covariance_type="diag",
+            random_state=RANDOM_STATE,
+            max_iter=200,
+        )
+        gmm.fit(X)
+        results.append({"k": k, "bic": gmm.bic(X), "aic": gmm.aic(X)})
+    return pd.DataFrame(results)
+
+
+def build_comparison_table(
+    comparison_results: list[dict],
+    df_customers: pd.DataFrame,
+) -> pd.DataFrame:
+    """Build algorithm comparison DataFrame with min cluster size %.
+
+    Args:
+        comparison_results: List of dicts with keys: algorithm, silhouette,
+            davies_bouldin, calinski_harabasz.
+        df_customers: Customer DataFrame with '<algo>_label' columns.
+
+    Returns:
+        DataFrame with columns: algorithm, k, silhouette, davies_bouldin,
+        calinski_harabasz, min_cluster_pct.
+    """
+    comp_df = pd.DataFrame(comparison_results)
+    # Compute min cluster size % for each algorithm
+    min_pcts = []
+    for _, row in comp_df.iterrows():
+        algo = row["algorithm"]
+        label_col = f"{algo.lower().replace(' ', '_').replace('(', '').replace(')', '')}_label"
+        # Try common naming patterns
+        candidates = [label_col]
+        if "hierarchical" in algo.lower() or "ward" in algo.lower():
+            candidates = ["hclust_label", "hierarchical_label"]
+        elif "gmm" in algo.lower():
+            candidates = ["gmm_label", "gmm_diag_label"]
+        elif "kmeans" in algo.lower():
+            candidates = ["kmeans_label"]
+        found = False
+        for col in candidates:
+            if col in df_customers.columns:
+                labels = df_customers[col]
+                min_pcts.append(labels.value_counts(normalize=True).min() * 100)
+                found = True
+                break
+        if not found:
+            min_pcts.append(float("nan"))
+    comp_df["min_cluster_pct"] = min_pcts
+    return comp_df
+
+
+def select_best_algorithm(comp_df: pd.DataFrame) -> pd.Series:
+    """Select best algorithm based on combined score.
+
+    Score = silhouette - davies_bouldin / max(davies_bouldin).
+    Rows with min_cluster_pct < 1% are penalised.
+
+    Args:
+        comp_df: Output of build_comparison_table().
+
+    Returns:
+        Series for the best algorithm row.
+    """
+    df = comp_df.copy()
+    db_max = df["davies_bouldin"].max()
+    df["score"] = df["silhouette"] - df["davies_bouldin"] / db_max
+    # Penalise trivially small clusters
+    if "min_cluster_pct" in df.columns:
+        df.loc[df["min_cluster_pct"] < 1.0, "score"] -= 0.5
+    return df.loc[df["score"].idxmax()]
 
 
 def log_clustering_run(

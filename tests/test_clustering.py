@@ -1,10 +1,11 @@
-"""Tests for src/clustering.py — Stories 4.1 & 4.2 & 4.3."""
+"""Tests for src/clustering.py — Stories 4.1 & 4.2 & 4.3 & 4.4."""
 import pytest
 import pandas as pd
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from sklearn.mixture import GaussianMixture
 
 from src.clustering import evaluate_kmeans_k_range, get_top_k_candidates, run_kmeans_final
 
@@ -423,4 +424,258 @@ class TestLogClusteringRun:
             )
         assert isinstance(child_id, str)
         assert child_id != parent.info.run_id
+
+
+# ── Story 4.4: Gaussian Mixture Models ──────────────────────────────
+
+class TestRunGmm:
+    """Tests for run_gmm() — AC 1-2."""
+
+    def test_returns_tuple_of_labels_and_model(self, synthetic_X):
+        """AC-1: function returns (labels, fitted GaussianMixture model)."""
+        from src.clustering import run_gmm
+        labels, model = run_gmm(synthetic_X, k=3)
+        assert isinstance(labels, np.ndarray)
+        assert isinstance(model, GaussianMixture)
+
+    def test_labels_length_matches_input(self, synthetic_X):
+        from src.clustering import run_gmm
+        labels, _ = run_gmm(synthetic_X, k=3)
+        assert len(labels) == len(synthetic_X)
+
+    def test_labels_contain_k_unique_values(self, synthetic_X):
+        """AC-1: n_components=k produces k distinct labels on clear clusters."""
+        from src.clustering import run_gmm
+        k = 3
+        labels, _ = run_gmm(synthetic_X, k=k)
+        assert len(set(labels)) == k
+
+    def test_covariance_type_is_diag(self, synthetic_X):
+        """AC-1: covariance_type must be 'diag' (not 'full')."""
+        from src.clustering import run_gmm
+        _, model = run_gmm(synthetic_X, k=3)
+        assert model.covariance_type == "diag"
+
+    def test_random_state_is_42(self, synthetic_X):
+        """AC-1: random_state=RANDOM_STATE (42)."""
+        from src.clustering import run_gmm
+        from src.config import RANDOM_STATE
+        _, model = run_gmm(synthetic_X, k=3)
+        assert model.random_state == RANDOM_STATE
+
+    def test_deterministic(self, synthetic_X):
+        """Same input → same labels."""
+        from src.clustering import run_gmm
+        labels1, _ = run_gmm(synthetic_X, k=3)
+        labels2, _ = run_gmm(synthetic_X, k=3)
+        np.testing.assert_array_equal(labels1, labels2)
+
+    def test_labels_are_integers(self, synthetic_X):
+        from src.clustering import run_gmm
+        labels, _ = run_gmm(synthetic_X, k=3)
+        assert np.issubdtype(labels.dtype, np.integer)
+
+    def test_model_is_fitted(self, synthetic_X):
+        """Model must have converged_ attribute after fitting."""
+        from src.clustering import run_gmm
+        _, model = run_gmm(synthetic_X, k=3)
+        assert hasattr(model, "converged_")
+
+    def test_metrics_computable_on_labels(self, synthetic_X):
+        """AC-4: silhouette, DB, CH scores computable on gmm labels."""
+        from src.clustering import run_gmm
+        from sklearn.metrics import (
+            silhouette_score,
+            davies_bouldin_score,
+            calinski_harabasz_score,
+        )
+        labels, _ = run_gmm(synthetic_X, k=3)
+        sil = silhouette_score(synthetic_X, labels)
+        db = davies_bouldin_score(synthetic_X, labels)
+        ch = calinski_harabasz_score(synthetic_X, labels)
+        assert -1.0 <= sil <= 1.0
+        assert db > 0
+        assert ch > 0
+
+
+class TestEvaluateGmmBicAic:
+    """Tests for evaluate_gmm_bic_aic() — AC 3."""
+
+    def test_returns_dataframe(self, synthetic_X):
+        from src.clustering import evaluate_gmm_bic_aic
+        result = evaluate_gmm_bic_aic(synthetic_X, k_range=range(2, 5))
+        assert isinstance(result, pd.DataFrame)
+
+    def test_correct_columns(self, synthetic_X):
+        from src.clustering import evaluate_gmm_bic_aic
+        result = evaluate_gmm_bic_aic(synthetic_X, k_range=range(2, 5))
+        assert set(result.columns) == {"k", "bic", "aic"}
+
+    def test_correct_k_values(self, synthetic_X):
+        from src.clustering import evaluate_gmm_bic_aic
+        k_range = range(2, 6)
+        result = evaluate_gmm_bic_aic(synthetic_X, k_range=k_range)
+        assert list(result["k"]) == list(k_range)
+
+    def test_defaults_to_2_through_20(self, synthetic_X):
+        from src.clustering import evaluate_gmm_bic_aic
+        result = evaluate_gmm_bic_aic(synthetic_X)
+        assert list(result["k"]) == list(range(2, 21))
+
+    def test_bic_aic_are_finite(self, synthetic_X):
+        from src.clustering import evaluate_gmm_bic_aic
+        result = evaluate_gmm_bic_aic(synthetic_X, k_range=range(2, 5))
+        assert np.isfinite(result["bic"]).all()
+        assert np.isfinite(result["aic"]).all()
+
+    def test_best_bic_at_k3_for_clear_clusters(self, synthetic_X):
+        """With 3 clear clusters, best BIC (lowest) should be at k=3."""
+        from src.clustering import evaluate_gmm_bic_aic
+        result = evaluate_gmm_bic_aic(synthetic_X, k_range=range(2, 7))
+        best_k = result.loc[result["bic"].idxmin(), "k"]
+        assert best_k == 3
+
+
+class TestPlotGmmBicAic:
+    """Tests for plot_gmm_bic_aic() in visualization.py."""
+
+    @pytest.fixture
+    def bic_aic_df(self):
+        return pd.DataFrame({
+            "k": [2, 3, 4, 5],
+            "bic": [1000, 800, 850, 900],
+            "aic": [950, 750, 800, 850],
+        })
+
+    def test_returns_figure(self, bic_aic_df):
+        from src.visualization import plot_gmm_bic_aic
+        fig = plot_gmm_bic_aic(bic_aic_df)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_saves_to_file(self, bic_aic_df, tmp_path):
+        from src.visualization import plot_gmm_bic_aic
+        path = str(tmp_path / "gmm_bic_aic_test.png")
+        fig = plot_gmm_bic_aic(bic_aic_df, save_path=path)
+        import os
+        assert os.path.exists(path)
+        plt.close(fig)
+
+    def test_has_axes(self, bic_aic_df):
+        from src.visualization import plot_gmm_bic_aic
+        fig = plot_gmm_bic_aic(bic_aic_df)
+        assert len(fig.axes) >= 1
+        plt.close(fig)
+
+
+# ── Story 4.5: Algorithm Comparison & Final Selection ────────────────
+
+class TestBuildComparisonTable:
+    """Tests for build_comparison_table() — AC 1."""
+
+    @pytest.fixture
+    def comparison_results_fixture(self):
+        return [
+            {"algorithm": "KMeans", "k": 5, "silhouette": 0.35, "davies_bouldin": 1.2, "calinski_harabasz": 180},
+            {"algorithm": "Hierarchical (Ward)", "k": 5, "silhouette": 0.32, "davies_bouldin": 1.3, "calinski_harabasz": 170},
+            {"algorithm": "GMM (diag)", "k": 5, "silhouette": 0.30, "davies_bouldin": 1.5, "calinski_harabasz": 160},
+        ]
+
+    @pytest.fixture
+    def df_customers_fixture(self):
+        n = 100
+        rng = np.random.RandomState(42)
+        return pd.DataFrame({
+            "kmeans_label": rng.randint(0, 5, n),
+            "hclust_label": rng.randint(0, 5, n),
+            "gmm_label": rng.randint(0, 5, n),
+        })
+
+    def test_returns_dataframe(self, comparison_results_fixture, df_customers_fixture):
+        from src.clustering import build_comparison_table
+        comp_df = build_comparison_table(comparison_results_fixture, df_customers_fixture)
+        assert isinstance(comp_df, pd.DataFrame)
+
+    def test_has_min_cluster_pct_column(self, comparison_results_fixture, df_customers_fixture):
+        from src.clustering import build_comparison_table
+        comp_df = build_comparison_table(comparison_results_fixture, df_customers_fixture)
+        assert "min_cluster_pct" in comp_df.columns
+
+    def test_min_cluster_pct_is_positive(self, comparison_results_fixture, df_customers_fixture):
+        from src.clustering import build_comparison_table
+        comp_df = build_comparison_table(comparison_results_fixture, df_customers_fixture)
+        assert (comp_df["min_cluster_pct"] > 0).all()
+
+    def test_min_cluster_pct_max_100(self, comparison_results_fixture, df_customers_fixture):
+        from src.clustering import build_comparison_table
+        comp_df = build_comparison_table(comparison_results_fixture, df_customers_fixture)
+        assert (comp_df["min_cluster_pct"] <= 100).all()
+
+    def test_preserves_original_columns(self, comparison_results_fixture, df_customers_fixture):
+        from src.clustering import build_comparison_table
+        comp_df = build_comparison_table(comparison_results_fixture, df_customers_fixture)
+        for col in ["algorithm", "k", "silhouette", "davies_bouldin", "calinski_harabasz"]:
+            assert col in comp_df.columns
+
+    def test_row_count_matches_input(self, comparison_results_fixture, df_customers_fixture):
+        from src.clustering import build_comparison_table
+        comp_df = build_comparison_table(comparison_results_fixture, df_customers_fixture)
+        assert len(comp_df) == len(comparison_results_fixture)
+
+
+class TestSelectBestAlgorithm:
+    """Tests for select_best_algorithm() — AC 2."""
+
+    def test_returns_series(self):
+        from src.clustering import select_best_algorithm
+        comp_df = pd.DataFrame({
+            "algorithm": ["KMeans", "Hierarchical", "GMM"],
+            "k": [5, 5, 5],
+            "silhouette": [0.40, 0.35, 0.30],
+            "davies_bouldin": [1.0, 1.2, 1.5],
+            "calinski_harabasz": [200, 180, 160],
+            "min_cluster_pct": [10.0, 12.0, 8.0],
+        })
+        result = select_best_algorithm(comp_df)
+        assert isinstance(result, pd.Series)
+
+    def test_picks_highest_score(self):
+        from src.clustering import select_best_algorithm
+        comp_df = pd.DataFrame({
+            "algorithm": ["KMeans", "Hierarchical", "GMM"],
+            "k": [5, 5, 5],
+            "silhouette": [0.40, 0.35, 0.30],
+            "davies_bouldin": [1.0, 1.2, 1.5],
+            "calinski_harabasz": [200, 180, 160],
+            "min_cluster_pct": [10.0, 12.0, 8.0],
+        })
+        result = select_best_algorithm(comp_df)
+        # KMeans has highest silhouette and lowest DB → best score
+        assert result["algorithm"] == "KMeans"
+
+    def test_penalises_tiny_clusters(self):
+        from src.clustering import select_best_algorithm
+        comp_df = pd.DataFrame({
+            "algorithm": ["A", "B"],
+            "k": [5, 5],
+            "silhouette": [0.50, 0.45],
+            "davies_bouldin": [1.0, 1.0],
+            "calinski_harabasz": [200, 200],
+            "min_cluster_pct": [0.5, 15.0],  # A has tiny cluster
+        })
+        result = select_best_algorithm(comp_df)
+        assert result["algorithm"] == "B"
+
+    def test_result_has_algorithm_key(self):
+        from src.clustering import select_best_algorithm
+        comp_df = pd.DataFrame({
+            "algorithm": ["KMeans"],
+            "k": [3],
+            "silhouette": [0.5],
+            "davies_bouldin": [1.0],
+            "calinski_harabasz": [200],
+            "min_cluster_pct": [20.0],
+        })
+        result = select_best_algorithm(comp_df)
+        assert "algorithm" in result.index
 

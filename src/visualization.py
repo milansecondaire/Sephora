@@ -902,3 +902,50 @@ def plot_umap_kmeans_vs_hclust(
         default_path = os.path.join(FIGURES_DIR, "umap_kmeans_vs_hclust.png")
         fig.savefig(default_path, dpi=FIGURE_DPI, bbox_inches="tight")
     return fig
+
+
+# ---------------------------------------------------------------------------
+# US 4-4: GMM — BIC / AIC Plot
+# ---------------------------------------------------------------------------
+
+def plot_gmm_bic_aic(
+    bic_aic_df: pd.DataFrame,
+    save_path: str | None = None,
+) -> plt.Figure:
+    """Plot BIC and AIC curves vs. k for GMM model selection.
+
+    Args:
+        bic_aic_df: DataFrame with columns k, bic, aic.
+        save_path: If provided, saves figure to this path.
+
+    Returns:
+        matplotlib Figure.
+    """
+    _ensure_figures_dir()
+    fig, ax = plt.subplots(figsize=FIGSIZE_BAR)
+
+    ax.plot(bic_aic_df["k"], bic_aic_df["bic"], marker="o", linewidth=2,
+            color="#3B82F6", markersize=5, label="BIC")
+    ax.plot(bic_aic_df["k"], bic_aic_df["aic"], marker="s", linewidth=2,
+            color="#EF4444", markersize=5, label="AIC")
+
+    # Highlight minimum BIC
+    best_idx = bic_aic_df["bic"].idxmin()
+    best_k = bic_aic_df.loc[best_idx, "k"]
+    best_bic = bic_aic_df.loc[best_idx, "bic"]
+    ax.axvline(best_k, color="#F59E0B", linestyle="--", alpha=0.7,
+               label=f"Best BIC k={int(best_k)}")
+    ax.annotate(f"k={int(best_k)}", xy=(best_k, best_bic),
+                xytext=(best_k + 0.5, best_bic),
+                fontsize=9, color="#F59E0B")
+
+    ax.set_xlabel("k (number of components)")
+    ax.set_ylabel("Score")
+    ax.set_title("GMM — BIC & AIC vs. k")
+    ax.legend(loc="best", fontsize=10)
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches="tight")
+    return fig

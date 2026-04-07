@@ -87,7 +87,7 @@ development_status:
   4-1-kmeans-optimal-k-selection: done
   4-2-kmeans-final-run-assignment: done
   4-3-agglomerative-hierarchical-clustering: ready-for-dev
-  4-4-gaussian-mixture-models: ready-for-dev
+  4-4-gaussian-mixture-models: review
   4-5-algorithm-comparison-final-selection: ready-for-dev
   4-6-cluster-stability-validation: ready-for-dev
   epic-4-retrospective: optional
