@@ -57,6 +57,10 @@ FEATURES_DROP = [
     "age_generation",               # redundant with age
     "total_discount_eur",           # redundant: discount_rate captures the same information as a normalized ratio
     "cc_transactions",              # redundant: click_collect_ratio already exists
+    # R1.4 — perfectly correlated (compositional redundancy)
+    "estore_ratio",                 # store_ratio + estore_ratio + click_collect_ratio = 1 (colinéarité parfaite)
+    "market_others_ratio",          # fortement corrélé avec axe_others_ratio
+    "nb_unique_brands",             # r=0.83 avec frequency et monetary_total (redondant avec axis_diversity)
 ]
 
 # Continuous / numeric features → median imputation + StandardScaler
@@ -66,15 +70,15 @@ FEATURES_CONTINUOUS = [
     # Behavior
     "avg_basket_size_eur", "avg_units_per_basket", "discount_rate",
     # Channel ratios
-    "store_ratio", "estore_ratio", "click_collect_ratio",
+    "store_ratio", "click_collect_ratio",
     # Product affinity ratios
     "axe_make_up_ratio", "axe_skincare_ratio", "axe_fragrance_ratio",
     "axe_haircare_ratio", "axe_others_ratio",
     # Market ratios
     "market_selective_ratio", "market_exclusive_ratio",
-    "market_sephora_ratio", "market_others_ratio",
+    "market_sephora_ratio",
     # Diversity & counts
-    "nb_unique_brands", "nb_unique_stores", "axis_diversity",
+    "nb_unique_stores", "axis_diversity",
     # Demographics
     "age",
     # Lifecycle
@@ -107,14 +111,14 @@ FEATURE_CATEGORIES = {
         "axe_make_up_ratio", "axe_skincare_ratio", "axe_fragrance_ratio",
         "axe_haircare_ratio", "axe_others_ratio",
         "market_selective_ratio", "market_exclusive_ratio",
-        "market_sephora_ratio", "market_others_ratio",
+        "market_sephora_ratio",
         "axis_diversity",
     ],
     "comportement": [
-        "avg_units_per_basket", "nb_unique_brands", "nb_unique_stores",
+        "avg_units_per_basket", "nb_unique_stores",
     ],
     "canal": [
-        "store_ratio", "estore_ratio", "click_collect_ratio", "dominant_channel",
+        "store_ratio", "click_collect_ratio", "dominant_channel",
     ],
     "dates": [
         "subscription_tenure_days",
