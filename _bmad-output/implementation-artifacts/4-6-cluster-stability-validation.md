@@ -1,6 +1,6 @@
 # Story 4.6: Cluster Stability Validation
 
-Status: review
+Status: done
 
 > **Post-refonte R1 note:** No structural changes needed. `X_cluster` throughout is now `X_scaled` (43 features).
 > `bootstrap_stability()` receives `X_scaled` directly — no dimension issue.

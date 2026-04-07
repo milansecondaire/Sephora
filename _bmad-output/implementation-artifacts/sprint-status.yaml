@@ -89,7 +89,7 @@ development_status:
   4-3-agglomerative-hierarchical-clustering: ready-for-dev
   4-4-gaussian-mixture-models: review
   4-5-algorithm-comparison-final-selection: ready-for-dev
-  4-6-cluster-stability-validation: ready-for-dev
+  4-6-cluster-stability-validation: done
   epic-4-retrospective: optional
 
   # ─────────────────────────────────────────────────────────
