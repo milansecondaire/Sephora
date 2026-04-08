@@ -96,10 +96,10 @@ development_status:
   # E5 — Segment Profiling & Quantification
   # ─────────────────────────────────────────────────────────
   epic-5: in-progress
-  5-1-global-kpi-baseline: ready-for-dev
-  5-2-per-cluster-kpi-computation: ready-for-dev
+  5-1-global-kpi-baseline: done
+  5-2-per-cluster-kpi-computation: done
   5-3-delta-table-clusters-vs-global-average: ready-for-dev
-  5-4-top-distinguishing-features-per-cluster: ready-for-dev
+  5-4-top-distinguishing-features-per-cluster: done
   5-5-statistical-validation-segment-differences: ready-for-dev
   5-6-clv-ranking-high-potential-segment-identification: ready-for-dev
   epic-5-retrospective: optional

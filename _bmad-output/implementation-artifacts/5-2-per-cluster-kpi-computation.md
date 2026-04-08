@@ -1,6 +1,6 @@
 # Story 5.2: Per-Cluster KPI Computation
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -17,17 +17,17 @@ so that I can understand each segment's behavior in absolute terms.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Implement `compute_cluster_kpis()` in `src/profiling.py` (AC: 1–3)
-  - [ ] Group by `cluster_id`; aggregate `NUMERICAL_KPIS` with mean
-  - [ ] Add `n_customers` and `pct_customers` columns
-  - [ ] Return `cluster_kpis_df`
-- [ ] Task 2 — Implement `plot_cluster_kpi_heatmap()` in `src/visualization.py` (AC: 4)
-  - [ ] Normalize KPI matrix per column (min-max or z-score)
-  - [ ] Render seaborn heatmap
-  - [ ] Save to `figures/cluster_kpi_heatmap.png`
-- [ ] Task 3 — Add notebook section in `03_profiling.ipynb`
-  - [ ] Call `compute_cluster_kpis(df_customers)` and display matrix
-  - [ ] Call `plot_cluster_kpi_heatmap(cluster_kpis_df)`
+- [x] Task 1 — Implement `compute_cluster_kpis()` in `src/profiling.py` (AC: 1–3)
+  - [x] Group by `cluster_id`; aggregate `NUMERICAL_KPIS` with mean
+  - [x] Add `n_customers` and `pct_customers` columns
+  - [x] Return `cluster_kpis_df`
+- [x] Task 2 — Implement `plot_cluster_kpi_heatmap()` in `src/visualization.py` (AC: 4)
+  - [x] Normalize KPI matrix per column (min-max or z-score)
+  - [x] Render seaborn heatmap
+  - [x] Save to `figures/cluster_kpi_heatmap.png`
+- [x] Task 3 — Add notebook section in `03_profiling.ipynb`
+  - [x] Call `compute_cluster_kpis(df_customers)` and display matrix
+  - [x] Call `plot_cluster_kpi_heatmap(cluster_kpis_df)`
 
 ## Dev Notes
 
@@ -68,14 +68,26 @@ normalized = MinMaxScaler().fit_transform(cluster_kpis[NUMERICAL_KPIS])
 ## Dev Agent Record
 
 ### Agent Model Used
-_To be filled by Dev Agent_
+Claude Opus 4.6
 
 ### Debug Log References
+None — all tasks completed without issues.
 
 ### Completion Notes List
+- Task 1: `compute_cluster_kpis()` added to `src/profiling.py` — groups by `cluster_id`, computes mean of `NUMERICAL_KPIS`, adds `n_customers` and `pct_customers` as first two columns. 10 unit tests added (TestComputeClusterKpis).
+- Task 2: `plot_cluster_kpi_heatmap()` added to `src/visualization.py` — uses MinMaxScaler per column, renders seaborn heatmap with annotations, saves to `figures/`. 4 unit tests added (TestPlotClusterKpiHeatmap).
+- Task 3: US-5.2 section added to `03_profiling.ipynb` — markdown header + compute_cluster_kpis display cell + plot_cluster_kpi_heatmap cell.
+- Full regression: 356 passed, 1 pre-existing failure in test_config.py (unrelated).
+
+### Review Follow-ups (AI)
+- Fixed imports grouping in `src/visualization.py`.
+- Optimized `df.groupby` in `src/profiling.py` function.
+- Added default `save_path` value to `plot_cluster_kpi_heatmap`.
 
 ### File List
-Files to modify:
-- `src/profiling.py` (add `compute_cluster_kpis()`)
-- `src/visualization.py` (add `plot_cluster_kpi_heatmap()`)
-- `03_profiling.ipynb` (add US-5.2 section)
+Files modified:
+- `src/profiling.py` (added `compute_cluster_kpis()`)
+- `src/visualization.py` (added `plot_cluster_kpi_heatmap()`)
+- `tests/test_profiling.py` (added 10 tests for US-5.2)
+- `tests/test_visualization.py` (added 4 tests for US-5.2)
+- `03_profiling.ipynb` (added US-5.2 section: 3 cells)

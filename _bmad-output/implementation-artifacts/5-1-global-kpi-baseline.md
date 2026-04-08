@@ -1,6 +1,6 @@
 # Story 5.1: Global KPI Baseline
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -16,14 +16,14 @@ so that every segment can be benchmarked against it.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Implement `compute_global_kpis()` in `src/profiling.py` (AC: 1–3)
-  - [ ] Compute all 10 KPI groups as a dict or Series
-  - [ ] Return as formatted dict usable as baseline
-- [ ] Task 2 — Create `03_profiling.ipynb` and add E5 setup + US-5.1 section (AC: 2, 3)
-  - [ ] Load `customers_with_clusters.csv`
-  - [ ] Call `compute_global_kpis(df_customers)`
-  - [ ] Display formatted baseline table
-  - [ ] Print total customers + total sales
+- [x] Task 1 — Implement `compute_global_kpis()` in `src/profiling.py` (AC: 1–3)
+  - [x] Compute all 10 KPI groups as a dict or Series
+  - [x] Return as formatted dict usable as baseline
+- [x] Task 2 — Create `03_profiling.ipynb` and add E5 setup + US-5.1 section (AC: 2, 3)
+  - [x] Load `customers_with_clusters.csv`
+  - [x] Call `compute_global_kpis(df_customers)`
+  - [x] Display formatted baseline table
+  - [x] Print total customers + total sales
 
 ## Dev Notes
 
@@ -87,13 +87,27 @@ def compute_global_kpis(df: pd.DataFrame) -> dict:
 ## Dev Agent Record
 
 ### Agent Model Used
-_To be filled by Dev Agent_
+Claude Opus 4.6
 
 ### Debug Log References
+None
 
 ### Completion Notes List
+- Task 1: Created `src/profiling.py` with `NUMERICAL_KPIS` list and `compute_global_kpis()` — computes mean of 15 numerical KPIs, loyalty status distribution, total customers, total sales.
+- Task 1 tests: 9 unit tests in `tests/test_profiling.py` — all passing (returns dict, contains all KPIs, values are means, loyalty sums to 1, total customers/sales correct, single-row edge case).
+- Task 2: Created `03_profiling.ipynb` with E5 setup cell + US-5.1 section (baseline table, loyalty distribution table, total customers & sales print).
+- Note: `customers_with_clusters.csv` exported with `index=False` in E4 — notebook loads without `index_col`.
+- Pre-existing failure: `test_config.py::TestFeatureCategories::test_required_features_present` (market_others_ratio mismatch) — not related to this story.
+- **Code Review Fixes**: 
+  - Updated `03_profiling.ipynb` to format percentage metrics properly (`.2%`).
+  - Added `IPython.display` missing import.
+  - Made `compute_global_kpis` robust against missing columns.
+  - Created `pytest.ini` for smooth test discovery.
 
 ### File List
-Files to create:
-- `src/profiling.py` (create — add `compute_global_kpis()`, `NUMERICAL_KPIS`)
-- `03_profiling.ipynb` (create — add notebook setup + US-5.1 section)
+- `src/profiling.py` (created/updated)
+- `tests/test_profiling.py` (created)
+- `03_profiling.ipynb` (created/updated)
+- `02_clustering.ipynb` (updated - tracked changes)
+- `first-analysis.ipynb` (updated - tracked changes)
+- `pytest.ini` (created)

@@ -8,6 +8,8 @@ import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_samples
+from sklearn.preprocessing import MinMaxScaler
+from src.profiling import NUMERICAL_KPIS
 from src.config import (
     FIGSIZE_BAR, FIGSIZE_SCATTER, FIGURE_DPI, OUTPUT_PATH,
     SEGMENT_COLORS, PALETTE_AXES, RANDOM_STATE,
@@ -949,3 +951,96 @@ def plot_gmm_bic_aic(
     if save_path:
         fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches="tight")
     return fig
+
+
+# ---------------------------------------------------------------------------
+# US 5-2: Per-Cluster KPI Heatmap
+# ---------------------------------------------------------------------------
+
+def plot_cluster_kpi_heatmap(
+    cluster_kpis_df: pd.DataFrame,
+    save_path: str | None = "figures/cluster_kpi_heatmap.png",
+) -> plt.Figure:
+    """Normalized heatmap of KPI matrix (rows=clusters, cols=KPIs).
+
+    Min-max normalization per column for cross-feature comparison.
+    """
+    _ensure_figures_dir()
+    valid_kpis = [kpi for kpi in NUMERICAL_KPIS if kpi in cluster_kpis_df.columns]
+    raw = cluster_kpis_df[valid_kpis].replace([np.inf, -np.inf], np.nan)
+
+    scaler = MinMaxScaler()
+    normalized = pd.DataFrame(
+        scaler.fit_transform(raw),
+        index=raw.index,
+        columns=raw.columns,
+    )
+
+    fig, ax = plt.subplots(figsize=(max(12, len(valid_kpis) * 0.9), max(4, len(normalized) * 0.8 + 2)))
+    sns.heatmap(
+        normalized,
+        annot=True,
+        fmt=".2f",
+        cmap="YlOrRd",
+        linewidths=0.5,
+        ax=ax,
+        vmin=0,
+        vmax=1,
+    )
+    ax.set_title("Cluster KPI Heatmap (min-max normalized per column)", fontsize=13)
+    ax.set_ylabel("Cluster ID")
+    ax.set_xlabel("KPI")
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches="tight")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# US 5-4: Top Distinguishing Features per Cluster
+# ---------------------------------------------------------------------------
+
+def plot_distinguishing_features(
+    distinguishing_features: dict,
+    top_n: int = 5,
+    save_dir: str | None = "figures",
+) -> list[plt.Figure]:
+    """Horizontal bar chart per cluster showing top distinguishing features by Cohen's d.
+
+    Args:
+        distinguishing_features: dict from compute_distinguishing_features() —
+            cluster_id → DataFrame with columns [feature, cohens_d_abs, cohens_d].
+        top_n: Number of top positive + top negative features to show.
+        save_dir: Directory to save figures. None to skip saving.
+
+    Returns:
+        List of matplotlib Figures (one per cluster).
+    """
+    _ensure_figures_dir()
+    figs = []
+    for cluster_id in sorted(distinguishing_features.keys()):
+        feat_df = distinguishing_features[cluster_id].copy()
+
+        # Top positive and top negative features
+        positive = feat_df[feat_df['cohens_d'] > 0].head(top_n)
+        negative = feat_df[feat_df['cohens_d'] < 0].sort_values('cohens_d').head(top_n)
+        plot_data = pd.concat([positive, negative]).drop_duplicates(subset='feature')
+        plot_data = plot_data.sort_values('cohens_d')
+
+        fig, ax = plt.subplots(figsize=(10, max(4, len(plot_data) * 0.5 + 1)))
+        colors = ['#EF4444' if d < 0 else '#10B981' for d in plot_data['cohens_d']]
+        ax.barh(plot_data['feature'], plot_data['cohens_d'], color=colors, edgecolor='grey', height=0.6)
+        ax.axvline(0, color='black', linewidth=0.8)
+        ax.set_xlabel("Cohen's d (standardized difference vs. global mean)")
+        ax.set_title(f"Top Distinguishing Features — Cluster {cluster_id}", fontsize=13)
+        ax.grid(axis='x', alpha=0.3)
+        fig.tight_layout()
+
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+            path = os.path.join(save_dir, f"distinguishing_features_cluster_{cluster_id}.png")
+            fig.savefig(path, dpi=FIGURE_DPI, bbox_inches="tight")
+
+        figs.append(fig)
+    return figs

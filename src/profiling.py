@@ -87,16 +87,26 @@ def export_delta_table_md(delta_df: pd.DataFrame, output_path: str) -> None:
 def compute_distinguishing_features(df: pd.DataFrame, features: list) -> dict:
     """Return top distinguishing features per cluster via Cohen's d.
 
-    For each cluster, computes Cohen's d = (cluster_mean - global_mean) / global_std
+    For each cluster, computes Cohen's d = (cluster_mean - rest_mean) / rest_std
+    (comparing the cluster to the rest of the population)
     and returns a dict: cluster_id → DataFrame sorted by |Cohen's d| descending.
     """
-    global_mean = df[features].mean()
-    global_std = df[features].std()
     result = {}
-    for cluster_id in df['cluster_id'].unique():
-        cluster_df = df[df['cluster_id'] == cluster_id]
-        cluster_mean = cluster_df[features].mean()
-        cohens_d = (cluster_mean - global_mean) / (global_std + 1e-10)
+    cluster_groups = df.groupby('cluster_id')
+    
+    for cluster_id, cluster_df in cluster_groups:
+        rest_df = df[df['cluster_id'] != cluster_id]
+        
+        if rest_df.empty:
+            cluster_mean = cluster_df[features].mean()
+            cohens_d = pd.Series(0.0, index=features)
+        else:
+            cluster_mean = cluster_df[features].mean()
+            rest_mean = rest_df[features].mean()
+            rest_std = rest_df[features].std().fillna(0.0)
+            
+            cohens_d = (cluster_mean - rest_mean) / (rest_std + 1e-10)
+            
         feat_df = cohens_d.abs().sort_values(ascending=False).reset_index()
         feat_df.columns = ['feature', 'cohens_d_abs']
         feat_df['cohens_d'] = cohens_d[feat_df['feature'].values].values

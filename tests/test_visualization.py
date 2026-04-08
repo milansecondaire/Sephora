@@ -687,3 +687,129 @@ class TestPlotUmap2d:
         path = os.path.join(tmp_dir, "umap_2d_RFM_Segment_ID.png")
         assert os.path.isfile(path)
         plt.close(fig)
+
+
+# ================================================================
+# US 5-2: Per-Cluster KPI Heatmap
+# ================================================================
+
+@pytest.fixture
+def cluster_kpis_df():
+    """Minimal cluster KPI matrix for heatmap tests."""
+    from src.profiling import NUMERICAL_KPIS
+    np.random.seed(42)
+    n_clusters = 4
+    data = {'n_customers': [30, 25, 20, 25], 'pct_customers': [30.0, 25.0, 20.0, 25.0]}
+    for kpi in NUMERICAL_KPIS:
+        data[kpi] = np.random.uniform(0, 100, n_clusters)
+    df = pd.DataFrame(data, index=pd.Index(range(n_clusters), name='cluster_id'))
+    return df
+
+
+class TestPlotClusterKpiHeatmap:
+    def test_returns_figure(self, cluster_kpis_df):
+        from src.visualization import plot_cluster_kpi_heatmap
+        fig = plot_cluster_kpi_heatmap(cluster_kpis_df)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_saves_figure(self, cluster_kpis_df, tmp_dir):
+        from src.visualization import plot_cluster_kpi_heatmap
+        path = os.path.join(tmp_dir, "cluster_kpi_heatmap.png")
+        fig = plot_cluster_kpi_heatmap(cluster_kpis_df, save_path=path)
+        assert os.path.isfile(path)
+        assert os.path.getsize(path) > 0
+        plt.close(fig)
+
+    def test_heatmap_axes_present(self, cluster_kpis_df):
+        from src.visualization import plot_cluster_kpi_heatmap
+        fig = plot_cluster_kpi_heatmap(cluster_kpis_df)
+        ax = fig.axes[0]
+        assert ax.get_title() or fig._suptitle is not None
+        plt.close(fig)
+
+    def test_no_crash_single_cluster(self):
+        from src.visualization import plot_cluster_kpi_heatmap
+        from src.profiling import NUMERICAL_KPIS
+        data = {'n_customers': [50], 'pct_customers': [100.0]}
+        for kpi in NUMERICAL_KPIS:
+            data[kpi] = [42.0]
+        df = pd.DataFrame(data, index=pd.Index([0], name='cluster_id'))
+        fig = plot_cluster_kpi_heatmap(df)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+
+# ================================================================
+# US 5-4: Distinguishing Features per Cluster
+# ================================================================
+
+@pytest.fixture
+def distinguishing_features_data():
+    """DataFrame with cluster_id and features for distinguishing features tests."""
+    np.random.seed(42)
+    n = 100
+    features = ['monetary_avg', 'frequency', 'recency_days', 'store_ratio', 'discount_rate']
+    data = {f: np.random.uniform(0, 100, n) for f in features}
+    data['cluster_id'] = np.random.choice([0, 1, 2], n)
+    return pd.DataFrame(data), features
+
+
+class TestPlotDistinguishingFeatures:
+    def test_returns_list_of_figures(self, distinguishing_features_data):
+        from src.visualization import plot_distinguishing_features
+        from src.profiling import compute_distinguishing_features
+        df, features = distinguishing_features_data
+        dist_feats = compute_distinguishing_features(df, features)
+        figs = plot_distinguishing_features(dist_feats)
+        assert isinstance(figs, list)
+        assert all(isinstance(f, plt.Figure) for f in figs)
+        for f in figs:
+            plt.close(f)
+
+    def test_one_figure_per_cluster(self, distinguishing_features_data):
+        from src.visualization import plot_distinguishing_features
+        from src.profiling import compute_distinguishing_features
+        df, features = distinguishing_features_data
+        dist_feats = compute_distinguishing_features(df, features)
+        figs = plot_distinguishing_features(dist_feats)
+        assert len(figs) == len(dist_feats)
+        for f in figs:
+            plt.close(f)
+
+    def test_saves_figures(self, distinguishing_features_data, tmp_dir):
+        from src.visualization import plot_distinguishing_features
+        from src.profiling import compute_distinguishing_features
+        df, features = distinguishing_features_data
+        dist_feats = compute_distinguishing_features(df, features)
+        figs = plot_distinguishing_features(dist_feats, save_dir=tmp_dir)
+        for cluster_id in dist_feats:
+            path = os.path.join(tmp_dir, f"distinguishing_features_cluster_{cluster_id}.png")
+            assert os.path.isfile(path), f"Missing file for cluster {cluster_id}"
+            assert os.path.getsize(path) > 0
+        for f in figs:
+            plt.close(f)
+
+    def test_horizontal_bars(self, distinguishing_features_data):
+        from src.visualization import plot_distinguishing_features
+        from src.profiling import compute_distinguishing_features
+        df, features = distinguishing_features_data
+        dist_feats = compute_distinguishing_features(df, features)
+        figs = plot_distinguishing_features(dist_feats)
+        for fig in figs:
+            ax = fig.axes[0]
+            # barh creates Patch objects
+            assert len(ax.patches) > 0, "No bars found in chart"
+            plt.close(fig)
+
+    def test_top_n_parameter(self, distinguishing_features_data):
+        from src.visualization import plot_distinguishing_features
+        from src.profiling import compute_distinguishing_features
+        df, features = distinguishing_features_data
+        dist_feats = compute_distinguishing_features(df, features)
+        figs = plot_distinguishing_features(dist_feats, top_n=3)
+        for fig in figs:
+            ax = fig.axes[0]
+            # Should have at most 3 positive + 3 negative = 6 bars
+            assert len(ax.patches) <= 6
+            plt.close(fig)

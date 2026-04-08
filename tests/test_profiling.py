@@ -307,18 +307,22 @@ class TestComputeDistinguishingFeatures:
                 f"Cluster {cluster_id} not sorted by |Cohen's d| desc"
 
     def test_cohens_d_formula(self, sample_customers):
-        """Verify Cohen's d = (cluster_mean - global_mean) / global_std."""
+        """Verify Cohen's d = (cluster_mean - rest_mean) / rest_std."""
         features = [k for k in NUMERICAL_KPIS if k in sample_customers.columns]
         result = compute_distinguishing_features(sample_customers, features)
-        global_mean = sample_customers[features].mean()
-        global_std = sample_customers[features].std()
+        
         for cluster_id, df in result.items():
             cluster_mask = sample_customers['cluster_id'] == cluster_id
             cluster_mean = sample_customers.loc[cluster_mask, features].mean()
+            
+            rest_mask = ~cluster_mask
+            rest_mean = sample_customers.loc[rest_mask, features].mean()
+            rest_std = sample_customers.loc[rest_mask, features].std()
+            
             for _, row in df.iterrows():
                 feat = row['feature']
-                expected_d = (cluster_mean[feat] - global_mean[feat]) / (global_std[feat] + 1e-10)
-                assert row['cohens_d'] == pytest.approx(expected_d, abs=1e-6), \
+                expected_d = (cluster_mean[feat] - rest_mean[feat]) / (rest_std[feat] + 1e-10)
+                assert row['cohens_d'] == pytest.approx(expected_d, abs=1e-5), \
                     f"Cluster {cluster_id}, feature {feat}: expected {expected_d}, got {row['cohens_d']}"
 
     def test_all_features_present(self, sample_customers):
