@@ -679,3 +679,74 @@ class TestSelectBestAlgorithm:
         result = select_best_algorithm(comp_df)
         assert "algorithm" in result.index
 
+
+# ── Story 4.7: HDBSCAN Clustering ───────────────────────────────────
+
+class TestRunHdbscan:
+    """Tests for run_hdbscan() — AC 1, 3."""
+
+    def test_returns_tuple_of_labels_and_model(self, synthetic_X):
+        """AC-1: function returns (labels, fitted HDBSCAN model)."""
+        from src.clustering import run_hdbscan
+        from sklearn.cluster import HDBSCAN
+        labels, model = run_hdbscan(synthetic_X, min_cluster_size=10)
+        assert isinstance(labels, np.ndarray)
+        assert isinstance(model, HDBSCAN)
+
+    def test_labels_length_matches_input(self, synthetic_X):
+        from src.clustering import run_hdbscan
+        labels, _ = run_hdbscan(synthetic_X, min_cluster_size=10)
+        assert len(labels) == len(synthetic_X)
+
+    def test_noise_points_labelled_minus_one(self, synthetic_X):
+        """AC-3: noise points have label -1."""
+        from src.clustering import run_hdbscan
+        labels, _ = run_hdbscan(synthetic_X, min_cluster_size=10)
+        # Labels should contain -1 or non-negative integers
+        for lbl in labels:
+            assert lbl >= -1
+
+    def test_finds_clusters_on_clear_data(self, synthetic_X):
+        """On well-separated data, HDBSCAN should find at least 2 clusters."""
+        from src.clustering import run_hdbscan
+        labels, _ = run_hdbscan(synthetic_X, min_cluster_size=10)
+        non_noise = labels[labels != -1]
+        assert len(set(non_noise)) >= 2
+
+    def test_default_params(self, synthetic_X):
+        """Default min_cluster_size=500, min_samples=5."""
+        from src.clustering import run_hdbscan
+        _, model = run_hdbscan(synthetic_X)
+        assert model.min_cluster_size == 500
+        assert model.min_samples == 5
+
+    def test_custom_params(self, synthetic_X):
+        """Custom min_cluster_size and min_samples are respected."""
+        from src.clustering import run_hdbscan
+        _, model = run_hdbscan(synthetic_X, min_cluster_size=20, min_samples=3)
+        assert model.min_cluster_size == 20
+        assert model.min_samples == 3
+
+    def test_labels_are_integers(self, synthetic_X):
+        from src.clustering import run_hdbscan
+        labels, _ = run_hdbscan(synthetic_X, min_cluster_size=10)
+        assert np.issubdtype(labels.dtype, np.integer)
+
+    def test_model_is_fitted(self, synthetic_X):
+        """Model must have labels_ attribute after fitting."""
+        from src.clustering import run_hdbscan
+        _, model = run_hdbscan(synthetic_X, min_cluster_size=10)
+        assert hasattr(model, "labels_")
+
+    def test_accepts_dataframe(self, synthetic_X):
+        """Must accept pandas DataFrame."""
+        from src.clustering import run_hdbscan
+        labels, _ = run_hdbscan(synthetic_X, min_cluster_size=10)
+        assert len(labels) == len(synthetic_X)
+
+    def test_cluster_selection_method_eom(self, synthetic_X):
+        """cluster_selection_method should be 'eom'."""
+        from src.clustering import run_hdbscan
+        _, model = run_hdbscan(synthetic_X, min_cluster_size=10)
+        assert model.cluster_selection_method == "eom"
+

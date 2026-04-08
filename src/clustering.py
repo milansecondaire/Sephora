@@ -5,6 +5,7 @@ import pandas as pd
 from typing import Iterable
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
+from sklearn.cluster import HDBSCAN
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from src.config import RANDOM_STATE, K_RANGE
 
@@ -193,6 +194,24 @@ def run_gmm(X: pd.DataFrame, k: int) -> tuple:
     return labels, gmm
 
 
+def run_hdbscan(
+    X: pd.DataFrame,
+    min_cluster_size: int = 500,
+    min_samples: int = 5,
+) -> tuple:
+    """Fit HDBSCAN. Returns (labels ndarray, fitted model).
+    Noise points are labelled -1.
+    """
+    import numpy as np
+    model = HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        cluster_selection_method='eom',
+    )
+    labels = model.fit_predict(X)
+    return labels.astype(np.intp), model
+
+
 def evaluate_gmm_bic_aic(X: pd.DataFrame, k_range=None) -> pd.DataFrame:
     """Evaluate BIC and AIC for a range of k.
 
@@ -250,7 +269,11 @@ def build_comparison_table(
         for col in candidates:
             if col in df_customers.columns:
                 labels = df_customers[col]
-                min_pcts.append(labels.value_counts(normalize=True).min() * 100)
+                valid_labels = labels[labels != -1]
+                if len(valid_labels) > 0:
+                    min_pcts.append(valid_labels.value_counts(normalize=True).min() * 100)
+                else:
+                    min_pcts.append(float("nan"))
                 found = True
                 break
         if not found:
