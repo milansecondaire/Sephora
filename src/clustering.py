@@ -346,6 +346,8 @@ def build_comparison_table(
         if not found:
             min_pcts.append(float("nan"))
     comp_df["min_cluster_pct"] = min_pcts
+    if "notes" not in comp_df.columns:
+        comp_df["notes"] = ""
     return comp_df
 
 
@@ -363,7 +365,12 @@ def select_best_algorithm(comp_df: pd.DataFrame) -> pd.Series:
     """
     df = comp_df.copy()
     db_max = df["davies_bouldin"].max()
-    df["score"] = df["silhouette"] - df["davies_bouldin"] / db_max
+    # Score incorporates silhouette, normalized negative DB, and normalized CH
+    ch_max = df["calinski_harabasz"].max()
+    db_norm = df["davies_bouldin"] / db_max if db_max > 0 else 0
+    ch_norm = df["calinski_harabasz"] / ch_max if ch_max > 0 else 0
+    df["score"] = df["silhouette"] - db_norm + 0.1 * ch_norm
+
     # Penalise trivially small clusters
     if "min_cluster_pct" in df.columns:
         df.loc[df["min_cluster_pct"] < 1.0, "score"] -= 0.5

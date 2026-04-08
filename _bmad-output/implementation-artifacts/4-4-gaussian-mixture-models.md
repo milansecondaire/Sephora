@@ -1,6 +1,6 @@
 # Story 4.4: Gaussian Mixture Models
 
-Status: review
+Status: done
 
 > **Post-refonte R1 note:** `covariance_type` changed from `'full'` to `'diag'` — mandatory.
 > With 43 features, `'full'` requires estimating 43×43 covariance matrices per cluster,

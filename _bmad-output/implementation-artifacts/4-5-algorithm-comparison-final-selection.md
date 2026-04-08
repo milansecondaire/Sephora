@@ -1,6 +1,6 @@
 # Story 4.5: Algorithm Comparison & Final Selection
 
-Status: review
+Status: done
 
 > **Post-refonte R1 note:** No structural changes needed. References to `X_cluster` replaced by `X_scaled`.
 > The export to `customers_with_clusters.csv` is already specified in R1.6 Task 10 — Amelia must
@@ -95,6 +95,13 @@ Claude Opus 4.6 via GitHub Copilot
 
 ### Debug Log References
 None — clean implementation, all tests passed first run.
+
+### Review Notes
+- **BUG- **BUG FIX (review):** `cluster_id` was set to string `f"C{x}"` instead of int alias. Fixed: `df_customers["cluster_id"] = df_customers["final_cluster"]` — matches architecture spec (int, 0-indexed).
+- **BUG FIX (review)**: `Notes` column added to `build_comparison_table()` to satisfy AC-1.
+- **BUG FIX (review)**: Calinski-Harabasz score factored into `select_best_algorithm()` to use all metrics. Division by zero on DB max guarded.
+- **BUG FIX (review)**: `02_clustering.ipynb` export logic protected against dropping PK index (`anonymized_card_code`) unintentionally with a reset check.
+ FIX (review):** `cluster_id` was set to string `f"C{x}"` instead of int alias. Fixed: `df_customers["cluster_id"] = df_customers["final_cluster"]` — matches architecture spec (int, 0-indexed).
 
 ### Completion Notes List
 - Added `build_comparison_table()` to `src/clustering.py` — converts comparison_results list to DataFrame with min_cluster_pct column
