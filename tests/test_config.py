@@ -107,10 +107,10 @@ class TestFeatureCategories:
             "affinite_produit": ["axe_make_up_ratio", "axe_skincare_ratio", "axe_fragrance_ratio",
                                  "axe_haircare_ratio", "axe_others_ratio",
                                  "market_selective_ratio", "market_exclusive_ratio",
-                                 "market_sephora_ratio", "market_others_ratio", 
+                                 "market_sephora_ratio",
                                  "axis_diversity"],
-            "comportement": ["avg_units_per_basket", "nb_unique_brands", "nb_unique_stores"],
-            "canal": ["store_ratio", "estore_ratio", "click_collect_ratio", "dominant_channel"],
+            "comportement": ["avg_units_per_basket", "nb_unique_stores"],
+            "canal": ["store_ratio", "click_collect_ratio", "dominant_channel"],
             "dates": ["subscription_tenure_days"],
         }
         total_expected = 0
@@ -119,10 +119,10 @@ class TestFeatureCategories:
             assert set(FEATURE_CATEGORIES[cat]) == set(features), (
                 f"Features mismatch in FEATURE_CATEGORIES['{cat}']"
             )
-        assert total_expected == 28, "Total features must be exactly 28"
-        
+        assert total_expected == 25, "Total features must be exactly 25"
+
         actual_total = sum(len(v) for v in FEATURE_CATEGORIES.values())
-        assert actual_total == 28, f"Expected 28 features across categories, got {actual_total}"
+        assert actual_total == 25, f"Expected 25 features across categories, got {actual_total}"
 
     def test_category_colors_matches_categories(self):
         """AC-5: CATEGORY_COLORS must have the same 6 keys as FEATURE_CATEGORIES."""

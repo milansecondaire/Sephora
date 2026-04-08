@@ -101,7 +101,7 @@ development_status:
   5-3-delta-table-clusters-vs-global-average: ready-for-dev
   5-4-top-distinguishing-features-per-cluster: done
   5-5-statistical-validation-segment-differences: ready-for-dev
-  5-6-clv-ranking-high-potential-segment-identification: ready-for-dev
+  5-6-clv-ranking-high-potential-segment-identification: done
   epic-5-retrospective: optional
 
   # ─────────────────────────────────────────────────────────

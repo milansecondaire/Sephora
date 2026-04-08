@@ -1044,3 +1044,78 @@ def plot_distinguishing_features(
 
         figs.append(fig)
     return figs
+
+
+# ---------------------------------------------------------------------------
+# US 5-6: CLV Ranking — Priority Matrix
+# ---------------------------------------------------------------------------
+
+def plot_priority_matrix(
+    cluster_kpis: pd.DataFrame,
+    save_path: str | None = None,
+) -> plt.Figure:
+    """2×2 prioritization matrix: x = segment size (%), y = avg CLV.
+
+    Bubble size proportional to total revenue contribution.
+    Quadrant lines at medians; quadrants labeled Grow / Nurture / Volume / Monitor.
+
+    Args:
+        cluster_kpis: DataFrame with index=cluster_id and columns
+            pct_customers, monetary_total, n_customers.
+        save_path: If provided, saves figure to this path.
+
+    Returns:
+        matplotlib Figure.
+    """
+    _ensure_figures_dir()
+    fig, ax = plt.subplots(figsize=FIGSIZE_SCATTER)
+
+    x = cluster_kpis['pct_customers']
+    y = cluster_kpis['monetary_total']
+    # Bubble size: total revenue contribution (n_customers × avg CLV)
+    total_revenue = cluster_kpis['n_customers'] * cluster_kpis['monetary_total']
+    max_rev = total_revenue.max()
+    size = (total_revenue / max_rev * 1500) if max_rev > 0 else cluster_kpis['n_customers'] * 0 + 100
+
+    ax.scatter(x, y, s=size, alpha=0.6, edgecolors='grey', linewidth=0.5)
+
+    # Quadrant lines at medians
+    x_med = x.median()
+    y_med = y.median()
+    ax.axvline(x_med, linestyle='--', color='gray', alpha=0.7)
+    ax.axhline(y_med, linestyle='--', color='gray', alpha=0.7)
+
+    # Label quadrants
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+    pad_x = (x_max - x_min) * 0.02
+    pad_y = (y_max - y_min) * 0.02
+
+    # Top-right: Grow (high CLV, large size)
+    ax.text(x_med + pad_x, y_max - pad_y, 'Grow', fontsize=11, fontweight='bold',
+            color='#10B981', va='top', ha='left', alpha=0.8)
+    # Top-left: Nurture (high CLV, small size) = investment-worthy
+    ax.text(x_min + pad_x, y_max - pad_y, 'Nurture', fontsize=11, fontweight='bold',
+            color='#F59E0B', va='top', ha='left', alpha=0.8)
+    # Bottom-right: Volume (low CLV, large size)
+    ax.text(x_med + pad_x, y_min + pad_y, 'Volume', fontsize=11, fontweight='bold',
+            color='#3B82F6', va='bottom', ha='left', alpha=0.8)
+    # Bottom-left: Monitor (low CLV, small size)
+    ax.text(x_min + pad_x, y_min + pad_y, 'Monitor', fontsize=11, fontweight='bold',
+            color='#94A3B8', va='bottom', ha='left', alpha=0.8)
+
+    # Annotate each cluster
+    for idx, row in cluster_kpis.iterrows():
+        label = row.get('persona_name', str(idx))
+        ax.annotate(str(label), (row['pct_customers'], row['monetary_total']),
+                    textcoords='offset points', xytext=(8, 5), fontsize=9)
+
+    ax.set_xlabel('Segment Size (% of customer base)', fontsize=11)
+    ax.set_ylabel('Avg CLV (monetary_total)', fontsize=11)
+    ax.set_title('Segment Priority Matrix — CLV vs. Size', fontsize=13)
+    fig.tight_layout()
+
+    if save_path:
+        os.makedirs(os.path.dirname(save_path) or '.', exist_ok=True)
+        fig.savefig(save_path, dpi=FIGURE_DPI, bbox_inches='tight')
+    return fig

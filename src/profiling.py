@@ -112,3 +112,54 @@ def compute_distinguishing_features(df: pd.DataFrame, features: list) -> dict:
         feat_df['cohens_d'] = cohens_d[feat_df['feature'].values].values
         result[cluster_id] = feat_df
     return result
+
+
+def rank_by_clv(cluster_kpis: pd.DataFrame) -> pd.DataFrame:
+    """Rank clusters by monetary_total (estimated CLV) descending and assign tier.
+
+    Returns a copy sorted by monetary_total desc with a 'clv_tier' column
+    (Top / Mid / Low tertiles).
+    """
+    ranked = cluster_kpis.sort_values('monetary_total', ascending=False).copy()
+    n = len(ranked)
+    if n >= 3:
+        # Use rank(method='first') to ensure unique bin edges for qcut
+        ranked['clv_tier'] = pd.qcut(
+            ranked['monetary_total'].rank(method='first'), q=3, labels=['Low', 'Mid', 'Top']
+        )
+    else:
+        # Not enough clusters for tertiles — assign based on rank order
+        tiers = ['Top', 'Mid', 'Low']
+        ranked['clv_tier'] = [tiers[i] if i < len(tiers) else 'Low' for i in range(n)]
+    return ranked
+
+
+def identify_high_potential_segments(cluster_kpis: pd.DataFrame) -> dict:
+    """Identify top 3 priority, high-potential, and investment-worthy segments.
+
+    Returns dict with keys:
+    - 'top3_priority': list of cluster IDs (top 3 by CLV)
+    - 'high_potential': list of cluster IDs (above-median size AND above-median CLV)
+    - 'investment_worthy': list of cluster IDs (above-median CLV, below-median size)
+    """
+    sorted_kpis = cluster_kpis.sort_values('monetary_total', ascending=False)
+    top3 = sorted_kpis.index[:3].tolist()
+
+    median_size = cluster_kpis['pct_customers'].median()
+    median_clv = cluster_kpis['monetary_total'].median()
+
+    high_potential = cluster_kpis[
+        (cluster_kpis['pct_customers'] >= median_size) &
+        (cluster_kpis['monetary_total'] >= median_clv)
+    ].index.tolist()
+
+    investment_worthy = cluster_kpis[
+        (cluster_kpis['monetary_total'] >= median_clv) &
+        (cluster_kpis['pct_customers'] < median_size)
+    ].index.tolist()
+
+    return {
+        'top3_priority': top3,
+        'high_potential': high_potential,
+        'investment_worthy': investment_worthy,
+    }

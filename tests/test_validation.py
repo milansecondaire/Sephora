@@ -1,9 +1,9 @@
-"""Tests for src/validation.py — Story 4.6: Cluster Stability Validation."""
+"""Tests for src/validation.py — Story 4.6 + Story 5.5."""
 import pytest
 import pandas as pd
 import numpy as np
 
-from src.validation import bootstrap_stability
+from src.validation import bootstrap_stability, run_kruskal_wallis, run_posthoc_mannwhitney, print_kruskal_summary
 
 
 @pytest.fixture
@@ -105,3 +105,145 @@ class TestBootstrapStability:
             s = f"{ari:.10f}"
             decimal_part = s.split(".")[1]
             assert decimal_part[4:] == "000000", f"ARI {ari} not rounded to 4 decimals"
+
+
+# ---------- US-5.5 fixtures ----------
+
+@pytest.fixture
+def clustered_df():
+    """DataFrame with 3 clusters and 4 KPIs, clearly separated."""
+    rng = np.random.RandomState(42)
+    n = 60
+    data = {
+        "cluster_id": [0] * 20 + [1] * 20 + [2] * 20,
+        "kpi_a": np.concatenate([rng.normal(10, 1, 20), rng.normal(50, 1, 20), rng.normal(90, 1, 20)]),
+        "kpi_b": np.concatenate([rng.normal(5, 0.5, 20), rng.normal(25, 0.5, 20), rng.normal(45, 0.5, 20)]),
+        "kpi_c": np.concatenate([rng.normal(100, 2, 20), rng.normal(100, 2, 20), rng.normal(100, 2, 20)]),
+        "kpi_d": np.concatenate([rng.normal(0, 1, 20), rng.normal(20, 1, 20), rng.normal(40, 1, 20)]),
+    }
+    return pd.DataFrame(data)
+
+
+@pytest.fixture
+def kpi_list():
+    return ["kpi_a", "kpi_b", "kpi_c", "kpi_d"]
+
+
+class TestRunKruskalWallis:
+    """Tests for run_kruskal_wallis() — AC 1-3."""
+
+    def test_returns_dataframe(self, clustered_df, kpi_list):
+        """AC-1: Returns a DataFrame."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        assert isinstance(result, pd.DataFrame)
+
+    def test_correct_columns(self, clustered_df, kpi_list):
+        """AC-1: Has kpi, H_statistic, p_value, significant columns."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        assert set(result.columns) == {"kpi", "H_statistic", "p_value", "significant"}
+
+    def test_one_row_per_kpi(self, clustered_df, kpi_list):
+        """AC-1: One row per KPI."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        assert len(result) == len(kpi_list)
+        assert list(result["kpi"]) == kpi_list
+
+    def test_p_value_range(self, clustered_df, kpi_list):
+        """AC-2: p-values between 0 and 1."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        assert (result["p_value"] >= 0).all()
+        assert (result["p_value"] <= 1).all()
+
+    def test_significant_flag_matches_threshold(self, clustered_df, kpi_list):
+        """AC-2: significant == (p_value < 0.05)."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        for _, row in result.iterrows():
+            assert row["significant"] == (row["p_value"] < 0.05)
+
+    def test_well_separated_clusters_significant(self, clustered_df, kpi_list):
+        """AC-3: kpi_a, kpi_b, kpi_d are well separated → significant."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        sig = result.set_index("kpi")["significant"]
+        assert sig["kpi_a"] is True or sig["kpi_a"] == True
+        assert sig["kpi_b"] is True or sig["kpi_b"] == True
+        assert sig["kpi_d"] is True or sig["kpi_d"] == True
+
+    def test_non_separated_cluster_not_significant(self, clustered_df, kpi_list):
+        """AC-3: kpi_c has same distribution → not significant."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        sig = result.set_index("kpi")["significant"]
+        assert sig["kpi_c"] == False
+
+    def test_at_least_n_significant(self, clustered_df, kpi_list):
+        """AC-3: At least 3 of 4 KPIs significant (a, b, d)."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        assert result["significant"].sum() >= 3
+
+    def test_h_statistic_positive(self, clustered_df, kpi_list):
+        """H-statistic is always non-negative."""
+        result = run_kruskal_wallis(clustered_df, kpi_list)
+        assert (result["H_statistic"] >= 0).all()
+
+
+class TestRunPosthocMannWhitney:
+    """Tests for run_posthoc_mannwhitney() — AC 4."""
+
+    def test_returns_dataframe(self, clustered_df, kpi_list):
+        """AC-4: Returns a DataFrame."""
+        result = run_posthoc_mannwhitney(clustered_df, kpi_list)
+        assert isinstance(result, pd.DataFrame)
+
+    def test_correct_columns(self, clustered_df, kpi_list):
+        """AC-4: Has expected columns."""
+        result = run_posthoc_mannwhitney(clustered_df, kpi_list)
+        assert set(result.columns) == {"kpi", "cluster_a", "cluster_b", "U_statistic", "p_value", "significant"}
+
+    def test_correct_number_of_rows(self, clustered_df, kpi_list):
+        """AC-4: 4 KPIs × C(3,2)=3 pairs = 12 rows."""
+        result = run_posthoc_mannwhitney(clustered_df, kpi_list)
+        assert len(result) == 4 * 3  # 4 kpis * 3 pairs
+
+    def test_significant_pairs_for_separated_kpis(self, clustered_df):
+        """AC-4: kpi_a pairs should all be significant."""
+        result = run_posthoc_mannwhitney(clustered_df, ["kpi_a"])
+        assert result["significant"].all()
+
+    def test_nonsignificant_pairs_for_same_kpi(self, clustered_df):
+        """AC-4: kpi_c pairs should NOT be significant."""
+        result = run_posthoc_mannwhitney(clustered_df, ["kpi_c"])
+        assert not result["significant"].any()
+
+    def test_p_values_in_range(self, clustered_df, kpi_list):
+        """p-values between 0 and 1."""
+        result = run_posthoc_mannwhitney(clustered_df, kpi_list)
+        assert (result["p_value"] >= 0).all()
+        assert (result["p_value"] <= 1).all()
+
+    def test_cluster_pairs_sorted(self, clustered_df, kpi_list):
+        """cluster_a < cluster_b for all rows."""
+        result = run_posthoc_mannwhitney(clustered_df, kpi_list)
+        assert (result["cluster_a"] < result["cluster_b"]).all()
+
+
+class TestPrintKruskalSummary:
+    """Tests for print_kruskal_summary() — AC 5."""
+
+    def test_returns_string(self, clustered_df, kpi_list):
+        """AC-5: Returns a summary string."""
+        kw = run_kruskal_wallis(clustered_df, kpi_list)
+        summary = print_kruskal_summary(kw, len(kpi_list))
+        assert isinstance(summary, str)
+
+    def test_summary_contains_count(self, clustered_df, kpi_list):
+        """AC-5: Summary contains 'X/4' format."""
+        kw = run_kruskal_wallis(clustered_df, kpi_list)
+        summary = print_kruskal_summary(kw, len(kpi_list))
+        n_sig = int(kw["significant"].sum())
+        assert f"{n_sig}/{len(kpi_list)}" in summary
+
+    def test_summary_format(self, clustered_df, kpi_list):
+        """AC-5: Summary matches expected format."""
+        kw = run_kruskal_wallis(clustered_df, kpi_list)
+        summary = print_kruskal_summary(kw, len(kpi_list))
+        assert "significantly differ" in summary
+        assert "p < 0.05" in summary

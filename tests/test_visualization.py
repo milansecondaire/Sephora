@@ -813,3 +813,85 @@ class TestPlotDistinguishingFeatures:
             # Should have at most 3 positive + 3 negative = 6 bars
             assert len(ax.patches) <= 6
             plt.close(fig)
+
+
+# ================================================================
+# US 5-6: CLV Priority Matrix
+# ================================================================
+
+@pytest.fixture
+def cluster_kpis_for_matrix():
+    """Minimal cluster KPIs for priority matrix tests."""
+    data = {
+        'n_customers': [100, 200, 50, 150, 80],
+        'pct_customers': [17.2, 34.5, 8.6, 25.9, 13.8],
+        'monetary_total': [3000.0, 1500.0, 5000.0, 800.0, 2200.0],
+    }
+    df = pd.DataFrame(data, index=[0, 1, 2, 3, 4])
+    df.index.name = 'cluster_id'
+    return df
+
+
+class TestPlotPriorityMatrix:
+    def test_returns_figure(self, cluster_kpis_for_matrix):
+        from src.visualization import plot_priority_matrix
+        fig = plot_priority_matrix(cluster_kpis_for_matrix)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_saves_figure(self, cluster_kpis_for_matrix, tmp_dir):
+        from src.visualization import plot_priority_matrix
+        path = os.path.join(tmp_dir, "subdir", "priority_matrix.png")
+        fig = plot_priority_matrix(cluster_kpis_for_matrix, save_path=path)
+        assert os.path.isfile(path)
+        assert os.path.getsize(path) > 0
+        plt.close(fig)
+
+    def test_has_quadrant_lines(self, cluster_kpis_for_matrix):
+        from src.visualization import plot_priority_matrix
+        fig = plot_priority_matrix(cluster_kpis_for_matrix)
+        ax = fig.axes[0]
+        # Should have vertical + horizontal median lines (dashed)
+        lines = [l for l in ax.get_lines() if l.get_linestyle() == '--']
+        assert len(lines) >= 2, "Expected at least 2 dashed quadrant lines"
+        plt.close(fig)
+
+    def test_has_quadrant_labels(self, cluster_kpis_for_matrix):
+        from src.visualization import plot_priority_matrix
+        fig = plot_priority_matrix(cluster_kpis_for_matrix)
+        ax = fig.axes[0]
+        texts = [t.get_text() for t in ax.texts]
+        for label in ['Grow', 'Nurture', 'Volume', 'Monitor']:
+            assert label in texts, f"Missing quadrant label: {label}"
+        plt.close(fig)
+
+    def test_has_cluster_annotations(self, cluster_kpis_for_matrix):
+        from src.visualization import plot_priority_matrix
+        fig = plot_priority_matrix(cluster_kpis_for_matrix)
+        ax = fig.axes[0]
+        texts = [t.get_text() for t in ax.texts]
+        # Should have annotations for each cluster (0..4)
+        for cid in cluster_kpis_for_matrix.index:
+            assert str(cid) in texts, f"Missing annotation for cluster {cid}"
+        plt.close(fig)
+
+    def test_has_scatter_points(self, cluster_kpis_for_matrix):
+        from src.visualization import plot_priority_matrix
+        fig = plot_priority_matrix(cluster_kpis_for_matrix)
+        ax = fig.axes[0]
+        collections = ax.collections
+        assert len(collections) >= 1, "No scatter points found"
+        plt.close(fig)
+
+    def test_zero_revenue_protection(self):
+        from src.visualization import plot_priority_matrix
+        # Create a DF where all revenues are 0
+        df = pd.DataFrame({
+            'n_customers': [100, 200],
+            'pct_customers': [33.3, 66.7],
+            'monetary_total': [0.0, 0.0]
+        }, index=[0, 1])
+        df.index.name = 'cluster_id'
+        fig = plot_priority_matrix(df)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)

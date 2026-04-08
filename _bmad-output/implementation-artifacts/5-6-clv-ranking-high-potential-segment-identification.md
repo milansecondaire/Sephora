@@ -1,6 +1,6 @@
 # Story 5.6: CLV Ranking & High-Potential Segment Identification
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -18,22 +18,22 @@ so that I know where to focus marketing investment first.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Implement `rank_by_clv()` in `src/profiling.py` (AC: 1)
-  - [ ] Sort `cluster_kpis_df` by `monetary_total` desc
-  - [ ] Add `clv_tier` column: Top/Mid/Low (tertiles)
-  - [ ] Print CLV ranking table
-- [ ] Task 2 — Implement `plot_priority_matrix()` in `src/visualization.py` (AC: 2–5)
-  - [ ] Scatter plot: x = pct_customers, y = monetary_total (avg CLV), bubble size = total revenue
-  - [ ] Add quadrant lines at medians
-  - [ ] Label quadrants: "Grow" / "Nurture" / "Volume" / "Monitor"
-  - [ ] Add persona name labels (if available; else cluster ID)
-  - [ ] Save to `figures/priority_matrix.png`
-- [ ] Task 3 — Identify high-potential and investment-worthy segments (AC: 4, 5)
-  - [ ] Print top 3 priority segments by CLV
-  - [ ] Flag investment-worthy: high CLV + small size
-- [ ] Task 4 — Add notebook section in `03_profiling.ipynb` (E5 final section)
-  - [ ] E5 summary Markdown: all segments ranked with tier assignments
-  - [ ] Gate statement: "Profiling complete — proceeding to E6 Personas"
+- [x] Task 1 — Implement `rank_by_clv()` in `src/profiling.py` (AC: 1)
+  - [x] Sort `cluster_kpis_df` by `monetary_total` desc
+  - [x] Add `clv_tier` column: Top/Mid/Low (tertiles)
+  - [x] Print CLV ranking table
+- [x] Task 2 — Implement `plot_priority_matrix()` in `src/visualization.py` (AC: 2–5)
+  - [x] Scatter plot: x = pct_customers, y = monetary_total (avg CLV), bubble size = total revenue
+  - [x] Add quadrant lines at medians
+  - [x] Label quadrants: "Grow" / "Nurture" / "Volume" / "Monitor"
+  - [x] Add persona name labels (if available; else cluster ID)
+  - [x] Save to `figures/priority_matrix.png`
+- [x] Task 3 — Identify high-potential and investment-worthy segments (AC: 4, 5)
+  - [x] Print top 3 priority segments by CLV
+  - [x] Flag investment-worthy: high CLV + small size
+- [x] Task 4 — Add notebook section in `03_profiling.ipynb` (E5 final section)
+  - [x] E5 summary Markdown: all segments ranked with tier assignments
+  - [x] Gate statement: "Profiling complete — proceeding to E6 Personas"
 
 ## Dev Notes
 
@@ -88,14 +88,25 @@ def plot_priority_matrix(cluster_kpis: pd.DataFrame, save_path: str = None) -> N
 ## Dev Agent Record
 
 ### Agent Model Used
-_To be filled by Dev Agent_
+Claude Opus 4.6
 
 ### Debug Log References
+None — all tasks implemented cleanly.
+- [AI-Review] Fixed missing `duplicates='drop'` safety in `pd.qcut` by switching to `rank(method='first')`.
+- [AI-Review] Added safety `ZeroDivisionError` fallback in bubble size calculation.
+- [AI-Review] Added 2 new tests to ensure crash resiliency.
 
 ### Completion Notes List
+- `rank_by_clv()`: sorts clusters desc by monetary_total, assigns clv_tier via pd.qcut tertiles (fallback for <3 clusters)
+- `identify_high_potential_segments()`: returns top3_priority, high_potential (above-median size+CLV), investment_worthy (high CLV, small size)
+- `plot_priority_matrix()`: bubble scatter with median quadrant lines, 4 labeled quadrants (Grow/Nurture/Volume/Monitor), cluster annotations
+- Notebook: 5 new cells (1 heading, 2 code, 1 viz, 1 gate markdown)
+- Tests: 8 tests for rank_by_clv, 8 tests for identify_high_potential_segments, 6 tests for plot_priority_matrix
+- Full suite: 425 passed, 0 failed
 
 ### File List
-Files to modify:
-- `src/profiling.py` (add `rank_by_clv()`)
-- `src/visualization.py` (add `plot_priority_matrix()`)
-- `03_profiling.ipynb` (add US-5.6 section + E5 summary)
+- `src/profiling.py` — added `rank_by_clv()`, `identify_high_potential_segments()`
+- `src/visualization.py` — added `plot_priority_matrix()`
+- `tests/test_profiling.py` — added TestRankByClv (9 tests), TestIdentifyHighPotentialSegments (8 tests)
+- `tests/test_visualization.py` — added TestPlotPriorityMatrix (7 tests)
+- `03_profiling.ipynb` — added US-5.6 section (CLV ranking, segment identification, priority matrix, E5 gate)

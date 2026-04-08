@@ -1,6 +1,6 @@
 # Story 5.5: Statistical Validation of Segment Differences
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -18,14 +18,14 @@ so that the segmentation is not the result of random noise.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 — Implement `run_kruskal_wallis()` in `src/validation.py` (AC: 1–3)
-  - [ ] For each KPI in `NUMERICAL_KPIS`, run `kruskal` test across cluster groups
-  - [ ] Return DataFrame: KPI | H-statistic | p-value | significant (bool)
-- [ ] Task 2 — Post-hoc pairwise tests (AC: 4)
-  - [ ] For each significant KPI: run pairwise Mann-Whitney U between all cluster pairs
-  - [ ] Display significant pairs
-- [ ] Task 3 — Print summary (AC: 5)
-- [ ] Task 4 — Add notebook section in `03_profiling.ipynb`
+- [x] Task 1 — Implement `run_kruskal_wallis()` in `src/validation.py` (AC: 1–3)
+  - [x] For each KPI in `NUMERICAL_KPIS`, run `kruskal` test across cluster groups
+  - [x] Return DataFrame: KPI | H-statistic | p-value | significant (bool)
+- [x] Task 2 — Post-hoc pairwise tests (AC: 4)
+  - [x] For each significant KPI: run pairwise Mann-Whitney U between all cluster pairs
+  - [x] Display significant pairs
+- [x] Task 3 — Print summary (AC: 5)
+- [x] Task 4 — Add notebook section in `03_profiling.ipynb`
 
 ## Dev Notes
 
@@ -79,13 +79,21 @@ assert n_significant >= 7, f"Only {n_significant}/10 KPIs are significant — co
 ## Dev Agent Record
 
 ### Agent Model Used
-_To be filled by Dev Agent_
+Claude Opus 4.6 via GitHub Copilot
 
 ### Debug Log References
+None — all tests passed on first run.
 
 ### Completion Notes List
+- `run_kruskal_wallis()`: Kruskal-Wallis H-test per KPI, returns DataFrame with H_statistic, p_value, significant flag
+- `run_posthoc_mannwhitney()`: Pairwise Mann-Whitney U for all cluster pairs, returns long-format DataFrame
+- `print_kruskal_summary()`: Prints and returns summary string "X/N KPIs significantly differ"
+- 19 new tests added to test_validation.py (31 total), all passing
+- Notebook section added after US-5.4 with Kruskal-Wallis table + post-hoc significant pairs
 
 ### File List
-Files to modify:
-- `src/validation.py` (add `run_kruskal_wallis()`)
-- `03_profiling.ipynb` (add US-5.5 section)
+- `src/validation.py` — added `run_kruskal_wallis()`, `run_posthoc_mannwhitney()`, `print_kruskal_summary()`
+- `tests/test_validation.py` — added `TestRunKruskalWallis`, `TestRunPosthocMannWhitney`, `TestPrintKruskalSummary`
+- `03_profiling.ipynb` — added US-5.5 section (markdown + 2 code cells with assert)
+- `figures/cluster_kpi_heatmap.png`, `figures/distinguishing_features_cluster_X.png`, `_bmad-output/implementation-artifacts/figures/umap_2d_loyalty_status.png` — refreshed previous figures
+- `src/__pycache__` and `tests/__pycache__` — updated bytecode

@@ -1,4 +1,4 @@
-"""Tests for src/profiling.py — Stories 5.1, 5.2, 5.3, 5.4."""
+"""Tests for src/profiling.py — Stories 5.1, 5.2, 5.3, 5.4, 5.6."""
 import pytest
 import pandas as pd
 import numpy as np
@@ -8,7 +8,8 @@ import tempfile
 from src.profiling import (
     compute_global_kpis, compute_cluster_kpis, NUMERICAL_KPIS,
     build_delta_table, get_notable_deltas, export_delta_table_md,
-    compute_distinguishing_features,
+    compute_distinguishing_features, rank_by_clv,
+    identify_high_potential_segments,
 )
 
 
@@ -355,3 +356,120 @@ class TestComputeDistinguishingFeatures:
         result = compute_distinguishing_features(df, ['feat_a'])
         assert len(result) == 1
         assert result[0]['cohens_d'].values[0] == pytest.approx(0.0, abs=1e-6)
+
+
+# ================================================================
+# US 5-6: CLV Ranking & High-Potential Segment Identification
+# ================================================================
+
+class TestRankByClv:
+    def test_returns_dataframe(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = rank_by_clv(cluster_kpis)
+        assert isinstance(result, pd.DataFrame)
+
+    def test_sorted_by_monetary_total_desc(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = rank_by_clv(cluster_kpis)
+        vals = result['monetary_total'].tolist()
+        assert vals == sorted(vals, reverse=True)
+
+    def test_clv_tier_column_exists(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = rank_by_clv(cluster_kpis)
+        assert 'clv_tier' in result.columns
+
+    def test_clv_tier_values(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = rank_by_clv(cluster_kpis)
+        valid_tiers = {'Top', 'Mid', 'Low'}
+        assert set(result['clv_tier'].dropna().unique()).issubset(valid_tiers)
+
+    def test_does_not_modify_original(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        original_cols = list(cluster_kpis.columns)
+        rank_by_clv(cluster_kpis)
+        assert list(cluster_kpis.columns) == original_cols
+
+    def test_preserves_all_original_columns(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        original_cols = set(cluster_kpis.columns)
+        result = rank_by_clv(cluster_kpis)
+        assert original_cols.issubset(set(result.columns))
+
+    def test_same_number_of_rows(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = rank_by_clv(cluster_kpis)
+        assert len(result) == len(cluster_kpis)
+
+    def test_two_clusters(self):
+        """Minimal 2-cluster case: can't form 3 tertiles, fallback to labels."""
+        df = pd.DataFrame({
+            'n_customers': [50, 50],
+            'pct_customers': [50.0, 50.0],
+            'monetary_total': [1000.0, 500.0],
+        }, index=[0, 1])
+        df.index.name = 'cluster_id'
+        result = rank_by_clv(df)
+        assert result.iloc[0]['monetary_total'] >= result.iloc[1]['monetary_total']
+        assert 'clv_tier' in result.columns
+
+    def test_identical_clv(self):
+        """Duplicates in monetary_total should not crash pd.qcut."""
+        df = pd.DataFrame({
+            'n_customers': [50, 50, 50, 50],
+            'pct_customers': [25.0, 25.0, 25.0, 25.0],
+            'monetary_total': [100.0, 100.0, 100.0, 100.0], # All identical
+        }, index=[0, 1, 2, 3])
+        df.index.name = 'cluster_id'
+        # Would raise ValueError: Bin edges must be unique without method='first' processing
+        result = rank_by_clv(df)
+        assert len(result) == 4
+        assert 'clv_tier' in result.columns
+
+
+class TestIdentifyHighPotentialSegments:
+    def test_returns_dict(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        assert isinstance(result, dict)
+
+    def test_has_top3_key(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        assert 'top3_priority' in result
+
+    def test_top3_has_at_most_3(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        assert len(result['top3_priority']) <= 3
+
+    def test_top3_sorted_by_clv(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        vals = [cluster_kpis.loc[c, 'monetary_total'] for c in result['top3_priority']]
+        assert vals == sorted(vals, reverse=True)
+
+    def test_has_investment_worthy_key(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        assert 'investment_worthy' in result
+
+    def test_investment_worthy_is_list(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        assert isinstance(result['investment_worthy'], list)
+
+    def test_has_high_potential_key(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        assert 'high_potential' in result
+
+    def test_high_potential_above_medians(self, sample_customers):
+        cluster_kpis = compute_cluster_kpis(sample_customers)
+        result = identify_high_potential_segments(cluster_kpis)
+        median_size = cluster_kpis['pct_customers'].median()
+        median_clv = cluster_kpis['monetary_total'].median()
+        for c in result['high_potential']:
+            assert cluster_kpis.loc[c, 'pct_customers'] >= median_size
+            assert cluster_kpis.loc[c, 'monetary_total'] >= median_clv
