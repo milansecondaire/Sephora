@@ -1,11 +1,13 @@
 """Clustering module for Sephora customer segmentation (Epic 4)."""
 
 import mlflow
+import numpy as np
 import pandas as pd
 from typing import Iterable
-from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
 from sklearn.mixture import GaussianMixture
 from sklearn.cluster import HDBSCAN
+from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from src.config import RANDOM_STATE, K_RANGE
 
@@ -212,6 +214,67 @@ def run_hdbscan(
     return labels.astype(np.intp), model
 
 
+def plot_kdistance(
+    X: pd.DataFrame,
+    k: int = 5,
+    n_samples: int = 10_000,
+    save_path: str | None = None,
+):
+    """Plot sorted k-th nearest-neighbour distances (k-distance graph).
+    The elbow of the curve is the candidate eps for DBSCAN.
+
+    Args:
+        X: Feature matrix (n_samples, n_features).
+        k: Neighbour count — should equal DBSCAN min_samples.
+        n_samples: Subsample size for speed.
+        save_path: Optional figure save path.
+
+    Returns:
+        matplotlib Figure.
+    """
+    import matplotlib.pyplot as plt
+
+    rng = np.random.default_rng(RANDOM_STATE)
+    n = len(X)
+    idx = rng.choice(n, size=min(n_samples, n), replace=False)
+    X_sub = X.values[idx] if hasattr(X, "values") else np.asarray(X)[idx]
+
+    nn = NearestNeighbors(n_neighbors=k, n_jobs=-1)
+    nn.fit(X_sub)
+    distances, _ = nn.kneighbors(X_sub)
+    k_distances = np.sort(distances[:, -1])
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(k_distances, linewidth=1.5)
+    ax.set_xlabel("Points triés par distance croissante")
+    ax.set_ylabel(f"Distance au {k}e plus proche voisin (eps candidat)")
+    ax.set_title(f"k-distance graph (k={k}) — Identifier le coude pour choisir eps")
+    ax.grid(True, alpha=0.4)
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150)
+    return fig
+
+
+def run_dbscan(
+    X: pd.DataFrame,
+    eps: float = 1.5,
+    min_samples: int = 5,
+) -> tuple:
+    """Fit DBSCAN. Returns (labels ndarray, fitted model).
+    Noise points are labelled -1.
+
+    Args:
+        X: Feature matrix (n_samples, n_features).
+        eps: Neighbourhood radius — tune via k-distance graph.
+        min_samples: Minimum points to form a core point.
+    """
+    model = DBSCAN(eps=eps, min_samples=min_samples, n_jobs=-1)
+    labels = model.fit_predict(X)
+    return labels, model
+
+
 def evaluate_gmm_bic_aic(X: pd.DataFrame, k_range=None) -> pd.DataFrame:
     """Evaluate BIC and AIC for a range of k.
 
@@ -256,15 +319,19 @@ def build_comparison_table(
     min_pcts = []
     for _, row in comp_df.iterrows():
         algo = row["algorithm"]
-        label_col = f"{algo.lower().replace(' ', '_').replace('(', '').replace(')', '')}_label"
-        # Try common naming patterns
-        candidates = [label_col]
-        if "hierarchical" in algo.lower() or "ward" in algo.lower():
-            candidates = ["hclust_label", "hierarchical_label"]
-        elif "gmm" in algo.lower():
-            candidates = ["gmm_label", "gmm_diag_label"]
-        elif "kmeans" in algo.lower():
-            candidates = ["kmeans_label"]
+        # Use explicit label_col if provided, otherwise use heuristic
+        if "label_col" in row and pd.notna(row.get("label_col")):
+            candidates = [row["label_col"]]
+        else:
+            label_col = f"{algo.lower().replace(' ', '_').replace('(', '').replace(')', '')}_label"
+            # Try common naming patterns
+            candidates = [label_col]
+            if "hierarchical" in algo.lower() or "ward" in algo.lower():
+                candidates = ["hclust_label", "hierarchical_label"]
+            elif "gmm" in algo.lower():
+                candidates = ["gmm_label", "gmm_diag_label"]
+            elif "kmeans" in algo.lower():
+                candidates = ["kmeans_label"]
         found = False
         for col in candidates:
             if col in df_customers.columns:

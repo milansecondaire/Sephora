@@ -750,3 +750,146 @@ class TestRunHdbscan:
         _, model = run_hdbscan(synthetic_X, min_cluster_size=10)
         assert model.cluster_selection_method == "eom"
 
+
+# ── Story 4.8: DBSCAN Clustering ────────────────────────────────────
+
+class TestPlotKdistance:
+    """Tests for plot_kdistance() — AC 1, 8."""
+
+    def test_returns_figure(self, synthetic_X):
+        from src.clustering import plot_kdistance
+        fig = plot_kdistance(synthetic_X, k=5)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_saves_to_file(self, synthetic_X, tmp_path):
+        from src.clustering import plot_kdistance
+        path = str(tmp_path / "kdistance_test.png")
+        fig = plot_kdistance(synthetic_X, k=5, save_path=path)
+        import os
+        assert os.path.exists(path)
+        plt.close(fig)
+
+    def test_has_one_axes(self, synthetic_X):
+        from src.clustering import plot_kdistance
+        fig = plot_kdistance(synthetic_X, k=5)
+        assert len(fig.axes) == 1
+        plt.close(fig)
+
+    def test_subsamples_when_large(self):
+        """When n > n_samples, subsample is used (should not crash)."""
+        from src.clustering import plot_kdistance
+        rng = np.random.RandomState(42)
+        X_large = pd.DataFrame(rng.randn(500, 4), columns=["a", "b", "c", "d"])
+        fig = plot_kdistance(X_large, k=5, n_samples=100)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+    def test_custom_k(self, synthetic_X):
+        """Different k values should not crash."""
+        from src.clustering import plot_kdistance
+        for k in [3, 5, 10]:
+            fig = plot_kdistance(synthetic_X, k=k)
+            assert isinstance(fig, plt.Figure)
+            plt.close(fig)
+
+    def test_no_save_when_path_none(self, synthetic_X):
+        from src.clustering import plot_kdistance
+        fig = plot_kdistance(synthetic_X, k=5, save_path=None)
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
+
+
+class TestRunDbscan:
+    """Tests for run_dbscan() — AC 2, 4."""
+
+    def test_returns_tuple_of_labels_and_model(self, synthetic_X):
+        """AC-2: function returns (labels, fitted DBSCAN model)."""
+        from src.clustering import run_dbscan
+        from sklearn.cluster import DBSCAN
+        labels, model = run_dbscan(synthetic_X, eps=2.0)
+        assert isinstance(labels, np.ndarray)
+        assert isinstance(model, DBSCAN)
+
+    def test_labels_length_matches_input(self, synthetic_X):
+        from src.clustering import run_dbscan
+        labels, _ = run_dbscan(synthetic_X, eps=2.0)
+        assert len(labels) == len(synthetic_X)
+
+    def test_noise_points_labelled_minus_one(self, synthetic_X):
+        """AC-4: noise points have label -1."""
+        from src.clustering import run_dbscan
+        labels, _ = run_dbscan(synthetic_X, eps=2.0)
+        for lbl in labels:
+            assert lbl >= -1
+
+    def test_finds_clusters_on_clear_data(self, synthetic_X):
+        """On well-separated data, DBSCAN should find at least 2 clusters."""
+        from src.clustering import run_dbscan
+        labels, _ = run_dbscan(synthetic_X, eps=2.0, min_samples=5)
+        non_noise = labels[labels != -1]
+        assert len(set(non_noise)) >= 2
+
+    def test_default_params(self, synthetic_X):
+        """Default eps=1.5, min_samples=5."""
+        from src.clustering import run_dbscan
+        _, model = run_dbscan(synthetic_X)
+        assert model.eps == 1.5
+        assert model.min_samples == 5
+
+    def test_custom_eps(self, synthetic_X):
+        from src.clustering import run_dbscan
+        _, model = run_dbscan(synthetic_X, eps=3.0)
+        assert model.eps == 3.0
+
+    def test_custom_min_samples(self, synthetic_X):
+        from src.clustering import run_dbscan
+        _, model = run_dbscan(synthetic_X, min_samples=10)
+        assert model.min_samples == 10
+
+    def test_labels_are_integers(self, synthetic_X):
+        from src.clustering import run_dbscan
+        labels, _ = run_dbscan(synthetic_X, eps=2.0)
+        assert np.issubdtype(labels.dtype, np.integer)
+
+    def test_model_is_fitted(self, synthetic_X):
+        """Model must have labels_ attribute after fitting."""
+        from src.clustering import run_dbscan
+        _, model = run_dbscan(synthetic_X, eps=2.0)
+        assert hasattr(model, "labels_")
+
+    def test_accepts_dataframe(self, synthetic_X):
+        from src.clustering import run_dbscan
+        labels, _ = run_dbscan(synthetic_X, eps=2.0)
+        assert len(labels) == len(synthetic_X)
+
+    def test_larger_eps_reduces_noise(self, synthetic_X):
+        """Larger eps should generally reduce noise count."""
+        from src.clustering import run_dbscan
+        labels_small, _ = run_dbscan(synthetic_X, eps=0.5)
+        labels_large, _ = run_dbscan(synthetic_X, eps=5.0)
+        noise_small = (labels_small == -1).sum()
+        noise_large = (labels_large == -1).sum()
+        assert noise_large <= noise_small
+
+    def test_metrics_computable_on_non_noise(self, synthetic_X):
+        """AC-7: silhouette, DB, CH scores computable on non-noise points."""
+        from src.clustering import run_dbscan
+        from sklearn.metrics import (
+            silhouette_score,
+            davies_bouldin_score,
+            calinski_harabasz_score,
+        )
+        labels, _ = run_dbscan(synthetic_X, eps=2.0, min_samples=5)
+        mask = labels != -1
+        X_no_noise = synthetic_X.values[mask]
+        labels_no_noise = labels[mask]
+        n_clusters = len(set(labels_no_noise))
+        if n_clusters >= 2:
+            sil = silhouette_score(X_no_noise, labels_no_noise)
+            db = davies_bouldin_score(X_no_noise, labels_no_noise)
+            ch = calinski_harabasz_score(X_no_noise, labels_no_noise)
+            assert -1.0 <= sil <= 1.0
+            assert db > 0
+            assert ch > 0
+
