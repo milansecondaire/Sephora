@@ -199,7 +199,7 @@ def run_gmm(X: pd.DataFrame, k: int) -> tuple:
 def run_hdbscan(
     X: pd.DataFrame,
     min_cluster_size: int = 500,
-    min_samples: int = 5,
+    min_samples: int = 2000,
 ) -> tuple:
     """Fit HDBSCAN. Returns (labels ndarray, fitted model).
     Noise points are labelled -1.
@@ -260,7 +260,7 @@ def plot_kdistance(
 def run_dbscan(
     X: pd.DataFrame,
     eps: float = 1.5,
-    min_samples: int = 5,
+    min_samples: int = 2000,
 ) -> tuple:
     """Fit DBSCAN. Returns (labels ndarray, fitted model).
     Noise points are labelled -1.
