@@ -314,14 +314,27 @@ def build_comparison_table(
         DataFrame with columns: algorithm, k, silhouette, davies_bouldin,
         calinski_harabasz, min_cluster_pct.
     """
-    comp_df = pd.DataFrame(comparison_results)
+    # Normalise legacy French keys ("Algorithme" → "algorithm", etc.)
+    _key_map = {"Algorithme": "algorithm", "Silhouette": "silhouette",
+                "Davies-Bouldin": "davies_bouldin", "Calinski-Harabasz": "calinski_harabasz"}
+    normalised = []
+    for entry in comparison_results:
+        new_entry = {}
+        for k, v in entry.items():
+            new_entry[_key_map.get(k, k)] = v
+        normalised.append(new_entry)
+    comp_df = pd.DataFrame(normalised)
     # Compute min cluster size % for each algorithm
     min_pcts = []
     for _, row in comp_df.iterrows():
-        algo = row["algorithm"]
+        algo = row.get("algorithm")
+        if not isinstance(algo, str):
+            min_pcts.append(float("nan"))
+            continue
         # Use explicit label_col if provided, otherwise use heuristic
-        if "label_col" in row and pd.notna(row.get("label_col")):
-            candidates = [row["label_col"]]
+        label_col_val = row.get("label_col")
+        if isinstance(label_col_val, str) and label_col_val:
+            candidates = [label_col_val]
         else:
             label_col = f"{algo.lower().replace(' ', '_').replace('(', '').replace(')', '')}_label"
             # Try common naming patterns
